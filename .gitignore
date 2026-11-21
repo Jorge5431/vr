@@ -1,0 +1,12 @@
+.gradle/
+.idea/
+**/build/
+**/intermediates/
+**/local.properties
+*.apk
+*.aab
+*.dll
+*.exe
+*.so
+*.class
+*.dex
