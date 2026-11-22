@@ -1,3 +1,5 @@
+> Prévia 2.1.0: consulte [notas de entrega](DELIVERY-NOTES.md) e [instalação](Source/docs/INSTALLATION-PREVIEW.md). Esta reconstrução não comprova paridade integral com o APK 2.0.2.
+
 # 🌩️ StormVR
 
 **Transformando smartphones em experiências de realidade virtual.**

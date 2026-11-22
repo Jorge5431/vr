@@ -295,6 +295,8 @@ class VrRenderer(
     @Volatile var tracker: HandTracker? = null
     @Volatile var sensorOrientation = 90
     private var arTexId = 0
+    @Volatile internal var directCamera: DirectHandsCamera? = null
+    private var directBackground: DirectCameraBackdrop? = null
     private var arTexSet = false
     private var geomRot = -1
     private var geomW = 0
@@ -675,6 +677,7 @@ class VrRenderer(
         surfColor = SurfProg(SURF_VS, SURF_COLOR_FS)
 
         bgProg = program(BG_VS, BG_FS)
+        directBackground = DirectCameraBackdrop(program(BG_VS, DirectCameraBackdrop.SHADER))
         lensProg = program(LENS_VS, LENS_FS)
         fsProg = program(FS_VS, FS_FS)
         lensFbo = 0; lensTex = 0; lensDepth = 0
@@ -974,6 +977,17 @@ class VrRenderer(
         st.gaze[0] = -view[2]; st.gaze[1] = -view[6]; st.gaze[2] = -view[10]     // para onde a cabeça aponta (clique por olhar)
         publishHeadPose(dsx, dsy, dsz, st.sixDof && haveRaw && haveRaw0)
 
+        directCamera?.read(st.rotation, st.handMaxFps) { image, angle, focal, inference ->
+            if (st.passthrough) directBackground?.upload(image, angle, focal)
+            if (st.handsOn && inference) tracker?.takeIf { it.ready }?.submit { job ->
+                job.copyFrom(image)
+                Matrix.invertM(job.pose, 0, view, 0)
+                job.rot = angle
+                job.fx = focal; job.fy = focal
+                job.cx = image.width * 0.5f; job.cy = image.height * 0.5f
+                job.tsNs = image.timestamp; job.submitNs = System.nanoTime()
+            }
+        }
         updateHands()
     }
 
@@ -1017,7 +1031,8 @@ class VrRenderer(
 
     private fun renderEye(x: Int, y: Int, w: Int, h: Int, shift: Float, fov: Float) {
         GLES20.glViewport(x, y, w, h)
-        if (st.passthrough && bgReady) System.arraycopy(arProj, 0, proj, 0, 16)
+        if (st.passthrough && directCamera != null && directBackground?.ready == true) directBackground!!.project(proj, w, h)
+        else if (st.passthrough && bgReady) System.arraycopy(arProj, 0, proj, 0, 16)
         else Matrix.perspectiveM(proj, 0, fov, w.toFloat() / h, 0.05f, 60f)
         Matrix.setIdentityM(tr, 0)
         tr[12] = shift
@@ -1028,6 +1043,10 @@ class VrRenderer(
 
     // =====================================================================  cena
     private fun drawBackground() {
+        if (directCamera != null) {
+            directBackground?.takeIf { it.ready }?.draw()
+            return
+        }
         if (!bgReady) return
         GLES20.glDisable(GLES20.GL_DEPTH_TEST)
         GLES20.glDepthMask(false)
@@ -1235,7 +1254,7 @@ class VrRenderer(
             }
             palmBuf.position(0)
             Matrix.setIdentityM(model, 0)
-            drawMesh(palmBuf, 24)
+            if (st.handVisual == 0) drawMesh(palmBuf, 24)
 
             // ossos dos dedos (afinando) e ossos da palma (mais grossos)
             var b = 0
@@ -1243,7 +1262,7 @@ class VrRenderer(
                 val a0 = bones[b]
                 val b0 = bones[b + 1]
                 drawBone(p[a0 * 3], p[a0 * 3 + 1], p[a0 * 3 + 2],
-                    p[b0 * 3], p[b0 * 3 + 1], p[b0 * 3 + 2], jointR[a0], jointR[b0])
+                    p[b0 * 3], p[b0 * 3 + 1], p[b0 * 3 + 2], if (st.handVisual == 2) 0.002f else jointR[a0], if (st.handVisual == 2) 0.002f else jointR[b0])
                 b += 2
             }
             b = 0
@@ -1251,16 +1270,16 @@ class VrRenderer(
                 val a0 = palmBones[b]
                 val b0 = palmBones[b + 1]
                 drawBone(p[a0 * 3], p[a0 * 3 + 1], p[a0 * 3 + 2],
-                    p[b0 * 3], p[b0 * 3 + 1], p[b0 * 3 + 2], 0.0115f, 0.0115f)
+                    p[b0 * 3], p[b0 * 3 + 1], p[b0 * 3 + 2], if (st.handVisual == 2) 0.002f else 0.0115f, if (st.handVisual == 2) 0.002f else 0.0115f)
                 b += 2
             }
 
             // (sem antebraço/cotoco: só a mão é desenhada)
 
             // articulações (arredondam as dobras)
-            for (i in 1 until 21) {
-                if (handPin[h] && (i == 4 || i == 8)) continue
-                if (i == 12 || i == 16 || i == 20) continue                  // pontas já arredondadas pelo afinamento do osso
+            for (i in 0 until 21) {
+                if (st.handVisual != 2 && handPin[h] && (i == 4 || i == 8)) continue
+                if (st.handVisual != 2 && (i == 12 || i == 16 || i == 20)) continue                  // pontas já arredondadas pelo afinamento do osso
                 drawSphere(p[i * 3], p[i * 3 + 1], p[i * 3 + 2], jointR[i] * 1.06f)
             }
 

@@ -1,11 +1,23 @@
-# Pacote de código StormVR atualizado
+# StormVR Motion Preview 2.1.0 — 21/11/2026
 
-Esta cópia parte do commit a94f5afea67ac23ed1d9beedd84bbf691056c5ec do repositório original StormVR. O app Android recuperado era 0.4.0. A versão 0.4.2 / versionCode 3 é apenas uma candidata de código: inclui o modo experimental de pegada como controle, mas não foi compilada nem testada nesta etapa.
+Esta entrega é uma versão de teste compilada a partir da fonte recuperada do StormVR (base 0.4.0, commit upstream a94f5afea67ac23ed1d9beedd84bbf691056c5ec), com melhorias e reconstrução de recursos identificados no APK 2.0.2 fornecido. Não é a recuperação integral do código-fonte privado da 2.0.2. A equivalência de todas as funções daquela versão ainda não foi demonstrada.
 
-As credenciais Wi-Fi do firmware ESP32 foram removidas do template e deixadas em branco. Configure `WIFI_SSID` e `WIFI_PASS` localmente antes de gravar o firmware.
+## Implementado
+- Câmera traseira Camera2 para mãos e imagem de fundo em aparelhos sem ARCore, modelo de mãos incluído para uso offline.
+- Expiração independente por mão, reconstrução anatômica após filtragem, proteção para ossos colapsados e articulações invertidas.
+- Perfis Precisão, Equilibrado, Movimento rápido e Econômico: ajustam filtros e limite de inferência (30/30/60/15); Econômico também reduz a imagem de inferência. São limites solicitados, não FPS medidos.
+- Visuais mão completa, esqueleto e 21 pontos/conexões. A malha leve existente foi preservada; não é uma nova mão fotorrealista.
+- Cadastro visual em Caneta / Objeto: fotografar a mão segurando o objeto, selecionar uma marca e usar essa marca para mirar na sala e enviar a pose estimada ao PC. Guarda 25 amostras de cor, sem guardar a fotografia.
+- StormSaber: música original Pulso incluída, importação de mapas em subpasta, mensagens para falha de áudio, orientação horizontal invertida respeitada.
+- Biblioteca na tela espacial com Storm Target, Storm Blocks, Storm Boxing, Storm Lab e Storm Rhythm, placar, rodadas e recorde local. São minijogos 2D na Sala VR, não cinco mundos VR completos.
+- Driver SteamVR, configurador Windows, gamepad e painel empacotados. Instalador seleciona biblioteca SteamVR e preserva instalação anterior em StormVR-backups.
 
-O ZIP contém código e recursos, sem DLLs, EXEs, APKs ou bibliotecas nativas pré-compiladas. O APK 0.4.1 criado anteriormente não contém o modo novo e não deve ser tratado como atualização completa. O driver Windows precisa ser compilado com Visual Studio/CMake antes de instalar; o binário existente na referência foi excluído do pacote.
+## Limites
+O controle por objeto é experimental: requer mão e marca visíveis, não identifica automaticamente qualquer categoria de objeto e não mede uma pose 6DoF independente. A profundidade vem da mão; a direção é uma mira olho–marca. Perdas e oclusões precisam de teste real.
 
-Abra Source/android no Android Studio para compilar o app e executar os testes unitários adicionados. As instruções do driver estão em Source/pc_driver/LEIA-ME.txt; o guia de conexão e do modo de pegada está em Source/docs/CONEXAO_STEAMVR_APOLLO.md. O modo de pegada detecta a curvatura dos dedos; não reconhece a classe do objeto nem a pose do objeto separado da mão.
+O erro HTTP 403 do Apollo não foi reproduzido nem declarado resolvido. O acesso ao painel foi corrigido e o fluxo de novo pareamento documentado. O app novo precisa ser pareado novamente.
 
-Esta referência não contém o código que identificaria a instalação Android como 2.0.2. O repositório https://github.com/Jorge5431/vr.git agora tem a branch candidata https://github.com/Jorge5431/vr/tree/feature/held-object-grip-controller; ela não contém o código 2.0.2. Confirme versão e assinatura antes de instalar qualquer APK sobre dados existentes.
+Não foram realizados benchmarks no RMX3562, validação de precisão, conforto, temperatura, consumo ou teste completo de vídeo e controles no SteamVR. Não há equivalência comprovada com Meta Quest 3. Permanecem pendentes diagnósticos completos bruto/filtrado/reconstruído por ponto, novos gatilhos por indicador, recuperação visual suave após oclusão, Home totalmente redesenhada e evolução dos minijogos para ambientes imersivos.
+
+## Instalação preservada
+O APK usa com.stormvr.app.motion.preview, versão 2.1.0, assinatura de desenvolvimento e nome StormVR Motion Preview. Instala ao lado da 2.0.2; não substitui seus dados, configurações e pareamentos. A chave original da 2.0.2 não foi fornecida. O instalador Windows não foi executado contra o SteamVR real: os testes usaram uma pasta isolada.

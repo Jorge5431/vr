@@ -29,7 +29,7 @@ import com.stormvr.app.moonlight.MoonlightStore
 import com.limelight.nvstream.jni.MoonBridge
 
 /** Apps que podem aparecer na telona da Sala 3D (a lista da Home). */
-object TvApp { const val HOME = 0; const val BROWSER = 1; const val MOONLIGHT = 2; const val SABER = 3; const val APPS = 4 }
+object TvApp { const val HOME = 0; const val BROWSER = 1; const val MOONLIGHT = 2; const val SABER = 3; const val APPS = 4; const val ARCADE = 5 }
 
 /** Home da "TV": tela inicial com os apps. Novos apps entram como novas peças em [tiles]. */
 class TvHome(ctx: Context, private val onOpen: (Int) -> Unit) : LinearLayout(ctx) {
@@ -52,13 +52,14 @@ class TvHome(ctx: Context, private val onOpen: (Int) -> Unit) : LinearLayout(ctx
             Triple(TvApp.BROWSER, "🌐", "Navegador"),
             Triple(TvApp.MOONLIGHT, "🖥", "Moonlight"),
             Triple(TvApp.SABER, "⚔", "StormSaber"),
+            Triple(TvApp.ARCADE, "🎮", "Jogos da sala"),
             Triple(TvApp.APPS, "📱", "Apps"))
         for ((id, icon, name) in tiles) row.addView(tile(ctx, unit, icon, name) { onOpen(id) })
         addView(row)
     }
 
     private fun tile(ctx: Context, unit: Int, icon: String, name: String, click: () -> Unit): View {
-        val s = (unit * 0.30f).toInt()
+        val s = (unit * 0.25f).toInt()
         return LinearLayout(ctx).apply {
             orientation = VERTICAL; gravity = Gravity.CENTER
             background = GradientDrawable().apply { setColor(Color.argb(200, 38, 22, 66)); cornerRadius = s * 0.16f; setStroke(2, Color.argb(110, 157, 78, 255)) }

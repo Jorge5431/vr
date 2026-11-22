@@ -47,14 +47,26 @@ class HandPrior {
                 val l = len[c][k]; if (l <= 0f) { prevDirOk = false; continue }
                 var dx = p[b * 3] - p[a * 3]; var dy = p[b * 3 + 1] - p[a * 3 + 1]; var dz = p[b * 3 + 2] - p[a * 3 + 2]
                 var n = sqrt(dx * dx + dy * dy + dz * dz)
-                if (n < 1e-5f) { dx = d1[0]; dy = d1[1]; dz = d1[2]; n = 1f }
+                if (n < 1e-5f) {
+                    dx = if (prevDirOk) d0[0] else 0f
+                    dy = if (prevDirOk) d0[1] else 1f
+                    dz = if (prevDirOk) d0[2] else 0f
+                    n = 1f
+                }
                 dx /= n; dy /= n; dz /= n
                 if (prevDirOk && k >= 2) {                         // limite de dobra das articulações dos dedos (a base, k=1, é livre)
                     val cs = (d0[0] * dx + d0[1] * dy + d0[2] * dz).coerceIn(-1f, 1f)
                     val ang = Math.toDegrees(acos(cs).toDouble()).toFloat()
                     if (ang > maxA) {
                         var px = dx - d0[0] * cs; var py = dy - d0[1] * cs; var pz = dz - d0[2] * cs
-                        val pn = sqrt(px * px + py * py + pz * pz)
+                        var pn = sqrt(px * px + py * py + pz * pz)
+                        if (pn <= 1e-5f) {
+                            // A reversal has no unique bending plane. Pick a stable perpendicular.
+                            if (kotlin.math.abs(d0[0]) < 0.9f) {
+                                px = 0f; py = d0[2]; pz = -d0[1]
+                            } else { px = -d0[2]; py = 0f; pz = d0[0] }
+                            pn = sqrt(px * px + py * py + pz * pz)
+                        }
                         if (pn > 1e-5f) {
                             px /= pn; py /= pn; pz /= pn
                             val ma = Math.toRadians(maxA.toDouble()).toFloat(); val co = cos(ma); val si = sin(ma)

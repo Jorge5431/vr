@@ -61,6 +61,8 @@ class VrState {
     @Volatile var passthrough = false // modo câmera: sem sala, mostra a imagem da câmera
     @Volatile var handAim = 0         // 0 = olho -> pinça (alinhada), 1 = braço (amplificada)
     @Volatile var lite = false        // modo leve: menos resolução/detalhes, mais FPS
+    @Volatile var motionProfile = 1 // precisão, equilibrado, rápido, econômico
+    @Volatile var handVisual = 0 // mão completa, esqueleto, pontos
     @Volatile var twoHands = false    // rastrear 2 mãos (mais pesado) em vez de 1
     @Volatile var handScale = 1f      // calibração do tamanho da mão (distância estimada)
     // Fonte das "mãos": 0 = mãos (MediaPipe), 1 = CONTROLE 6DoF COM BOLINHAS (celular-controle mostrando 5 bolinhas; ver DotDetector)
@@ -91,6 +93,7 @@ class VrState {
 
     // mãos (índice 0 = esquerda, 1 = direita), em coordenadas da cena: 21 pontos x (x,y,z)
     val handLock = Any()
+    val objectController = ObjectController()
     val handPts = Array(2) { FloatArray(63) }
     val handValid = BooleanArray(2)
     val handPinch = BooleanArray(2)

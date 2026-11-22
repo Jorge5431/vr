@@ -1,0 +1,107 @@
+{
+  "source": {
+    "repository": "https://github.com/oluke0f-art/StormVR",
+    "commit": "a94f5afea67ac23ed1d9beedd84bbf691056c5ec",
+    "android_base_version": "0.4.0",
+    "updated_version": "2.1.0-preview",
+    "physical_validation": false
+  },
+  "errors": [
+    {
+      "id": "ERR-001",
+      "file": "Source/android/app/src/main/java/com/stormvr/app/vrroom/HandTracker.kt",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "Uma mão perdida podia continuar ativa enquanto a outra mão permanecesse visível.",
+      "cause": "O tempo de perda era compartilhado pelas duas mãos e era renovado por qualquer detecção.",
+      "severity": "high",
+      "reproduction": "Confirmado por inspeção do fluxo: detecção contínua de uma mão impede o timeout da outra.",
+      "correction": "Tempo de última detecção e expiração separados por mão.",
+      "test": "Compilação Android concluída; reprodução física pendente.",
+      "status": "CORRIGIDO_NO_CODIGO"
+    },
+    {
+      "id": "ERR-002",
+      "file": "Source/android/app/src/main/java/com/stormvr/app/vrroom/HandTracker.kt",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "O filtro independente por coordenada podia afastar os ossos dos comprimentos anatômicos reconstruídos.",
+      "cause": "A restrição anatômica era aplicada antes do filtro One Euro.",
+      "severity": "high",
+      "reproduction": "Confirmado pela ordem do código.",
+      "correction": "Aplicar a restrição depois do filtro e sincronizar o estado interno do filtro com a pose projetada.",
+      "test": "Compilação Android concluída; qualidade visual precisa de validação no RMX3562.",
+      "status": "CORRIGIDO_NO_CODIGO"
+    },
+    {
+      "id": "ERR-003",
+      "file": "Source/android/app/src/main/java/com/stormvr/app/moonlight/MoonlightActivity.kt",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "O texto fornecido registra HTTP 403 durante a conexão Apollo/Moonlight; a captura e a etapa exata não foram incluídas.",
+      "cause": "Não identificada. O fluxo abria diretamente /pin; o guia oficial do Apollo orienta entrar pela página inicial e usar a aba PIN.",
+      "severity": "critical",
+      "reproduction": "Não reproduzido: não há acesso à rede do usuário nem captura do erro.",
+      "correction": "Abrir a página inicial do painel Apollo e explicar login, aba PIN e significado do HTTP 403 na interface.",
+      "test": "Compilação Android concluída; pareamento real pendente.",
+      "status": "FLUXO_MELHORADO_CAUSA_NAO_CONFIRMADA"
+    },
+    {
+      "id": "ERR-004",
+      "file": "Source/pc_driver/installer/StormVrSetup.cs",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "A instalação usava caminhos SteamVR fixos e não detectava automaticamente bibliotecas Steam personalizadas.",
+      "cause": "Detecção limitada a um caminho Z: e ao diretório padrão em C:.",
+      "severity": "high",
+      "reproduction": "Confirmado por inspeção do instalador. O usuário confirmou que os arquivos do driver já existem na instalação atual.",
+      "correction": "Novo instalador com seleção de biblioteca e backup.",
+      "test": "Instalação e reinstalação passaram em pasta isolada; não executado no SteamVR real.",
+      "status": "TESTADO_EM_DIRETORIO_ISOLADO"
+    },
+    {
+      "id": "ERR-007",
+      "file": "Source/pc_driver/driver/driver.cpp",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "Conflito ou bloqueio das portas UDP do StormVR foi listado como suspeita de conexão.",
+      "cause": "Suspeita sem confirmação na conexão real.",
+      "severity": "medium",
+      "reproduction": "Conflito não reproduzido.",
+      "correction": "O instalador informa as portas UDP 5556 e 5557 e aponta para vrserver.txt e para o painel de diagnóstico.",
+      "test": "Inspeção de código; teste no SteamVR real pendente.",
+      "status": "CAUSA_NAO_CONFIRMADA"
+    },
+    {
+      "id": "ERR-008",
+      "file": "N/A",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "Compatibilidade integral com o Realme RMX3562, Apollo e SteamVR não foi comprovada fisicamente.",
+      "cause": "ADB não encontrou celular conectado; SteamVR/Apollo instalados no PC, teste ponta a ponta pendente.",
+      "severity": "critical",
+      "reproduction": "Pendente.",
+      "correction": "APK compilado; instruções de verificação e limites registrados no relatório e guia de instalação.",
+      "test": "Build Android concluído; teste físico pendente.",
+      "status": "PENDENTE_VALIDACAO_FISICA"
+    },
+    {
+      "id": "ERR-009",
+      "file": "Source/android/app/src/main/java/com/stormvr/app/vrroom/HandGripClassifier.kt",
+      "line": "Consulte o arquivo atual; numeração mudou nesta entrega.",
+      "description": "O pedido de usar o objeto segurado como controle não estava implementado na fonte recuperada.",
+      "cause": "A implementação recuperada oferecia rastreamento de mão/pinça, mas não tinha uma ação de pegada usada como gatilho do controle.",
+      "severity": "high",
+      "reproduction": "Confirmado pela inspeção do fluxo anterior e da aba Caneta / Objeto.",
+      "correction": "Pegada e cadastro visual de marca do objeto, posição estimada pela profundidade da mão e mira olho–marca.",
+      "test": "Testes unitários de pegada e aparência passaram; validação física pendente.",
+      "status": "IMPLEMENTADO_EXPERIMENTAL"
+    },
+    {
+      "id": "ERR-010",
+      "file": "Source/android/app/src/main/java/com/stormvr/app/vrroom/HandPrior.kt",
+      "line": "enforce",
+      "description": "Ossos colapsados e inversão exata podiam escapar da restrição anatômica.",
+      "cause": "Direção nula e ausência de plano perpendicular para vetores antiparalelos.",
+      "severity": "high",
+      "reproduction": "Teste unitário de colapso/inversão falhou antes da recompilação da correção e passou na compilação final.",
+      "correction": "Direção estável para osso colapsado e perpendicular determinística para limitar a articulação.",
+      "test": "HandPriorTest passou; teste físico pendente.",
+      "status": "CORRIGIDO_TESTADO_UNITARIAMENTE"
+    }
+  ]
+}

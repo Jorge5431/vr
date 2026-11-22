@@ -42,7 +42,7 @@
     <application
         android:name=".StormApp"
         android:allowBackup="true"
-        android:label="StormVR"
+        android:label="StormVR Motion Preview"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="false"

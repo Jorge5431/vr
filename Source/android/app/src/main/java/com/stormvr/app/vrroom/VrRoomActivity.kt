@@ -88,6 +88,7 @@ class VrRoomActivity : Activity() {
     }
 
     private val state = VrState()
+    private val objectUi by lazy { ObjectCalibrationUi(this, state.objectController) }
     private val ui = VrUi()
     private lateinit var renderer: VrRenderer
     private lateinit var glView: GLSurfaceView
@@ -113,6 +114,7 @@ class VrRoomActivity : Activity() {
 
     // 6DoF (ARCore)
     private var arSession: Session? = null
+    private var directCamera: DirectHandsCamera? = null
     private var installRequested = false
 
     // gamepad
@@ -192,6 +194,8 @@ class VrRoomActivity : Activity() {
         state.dotsScreenH = p.getFloat("dscrh", 153f).coerceIn(80f, 220f)
         if (state.handSource == 1) state.handsOn = true                     // as bolinhas usam o mesmo pipeline de câmera das mãos
         state.imuPos = p.getBoolean("imupos", true)
+        state.motionProfile = p.getInt("motionProfile", 1).coerceIn(0, 3)
+        state.handVisual = p.getInt("handVisual", 0).coerceIn(0, 2)
         state.handMaxFps = p.getInt("handfps", 30).coerceIn(10, 60)
         state.scrAz = p.getFloat("scraz", 0f).coerceIn(-180f, 180f)
         state.scrEl = p.getFloat("screl", 0f).coerceIn(-80f, 80f)
@@ -223,6 +227,8 @@ class VrRoomActivity : Activity() {
             .putInt("hsrc", state.handSource).putBoolean("dleft", state.dotsLeft)
             .putFloat("dscrw", state.dotsScreenW).putFloat("dscrh", state.dotsScreenH)
             .putBoolean("imupos", state.imuPos)
+            .putInt("motionProfile", state.motionProfile)
+            .putInt("handVisual", state.handVisual)
             .putInt("handfps", state.handMaxFps)
             .putFloat("scraz", state.scrAz).putFloat("screl", state.scrEl)
             .putFloat("scryaw", state.scrYaw).putFloat("scrpitch", state.scrPitch).putFloat("scrroll", state.scrRoll)
@@ -333,6 +339,7 @@ class VrRoomActivity : Activity() {
     }
 
     override fun onPause() {
+        tvArcade?.evaluateJavascript("window.pauseArcade?.()", null)
         Choreographer.getInstance().removeFrameCallback(frameCb)
         stopAr()
         renderer.stopSensors()
@@ -649,6 +656,22 @@ class VrRoomActivity : Activity() {
             tgt = pgMaos
             addView(head("Rastreamento"))
             addView(handsBox)
+            addView(Button(this@VrRoomActivity).apply {
+                val labels = arrayOf("Precisão", "Equilibrado", "Movimento rápido", "Econômico")
+                fun refresh() { text = "Perfil: ${labels[state.motionProfile]}" }
+                refresh(); isAllCaps = false
+                setOnClickListener {
+                    state.motionProfile = (state.motionProfile + 1) % 4
+                    state.handMaxFps = intArrayOf(30, 30, 60, 15)[state.motionProfile]
+                    savePrefs(); refresh()
+                }
+            })
+            addView(Button(this@VrRoomActivity).apply {
+                val labels = arrayOf("Mão completa", "Esqueleto", "21 pontos e conexões")
+                fun refresh() { text = "Visual: ${labels[state.handVisual]}" }
+                refresh(); isAllCaps = false
+                setOnClickListener { state.handVisual = (state.handVisual + 1) % 3; savePrefs(); refresh() }
+            })
             val heldObjectBox = CheckBox(this@VrRoomActivity).apply {
                 text = "Usar pegada de objeto como controle (experimental)"
                 isChecked = state.heldObjectControl
@@ -712,6 +735,14 @@ class VrRoomActivity : Activity() {
             advTgt = pgSpen
             com.stormvr.app.SPenUi.addTo(this@VrRoomActivity, pgSpen)   // S Pen como controle (celular usado como headset)
             pgSpen.addView(head("Objeto físico segurado"))
+            objectUi.addTo(pgSpen) {
+                state.handSource = 0
+                handsBox.isChecked = true
+                twoBox.isChecked = true
+                refreshDots()
+                savePrefs()
+                enterVr()
+            }
             pgSpen.addView(heldObjectBox)
             pgSpen.addView(TextView(this@VrRoomActivity).apply {
                 text = "Mantenha a mão segurando o objeto diante da câmera. O StormVR usa a curvatura dos dedos para acionar o controle virtual pela mão rastreada. Ele não identifica o tipo do objeto nem rastreia o objeto separado da mão."
@@ -864,6 +895,13 @@ class VrRoomActivity : Activity() {
             }
             val box = FrameLayout(p.context)
             box.addView(w, FrameLayout.LayoutParams(-1, -1))
+            val arcade = WebView(p.context).apply {
+                settings.javaScriptEnabled = true
+                settings.blockNetworkLoads = true
+                loadUrl("file:///android_asset/arcade/index.html")
+            }
+            tvArcade = arcade
+            box.addView(arcade, FrameLayout.LayoutParams(-1, -1))
             val home = TvHome(p.context) { app -> showTv(app) }
             box.addView(home, FrameLayout.LayoutParams(-1, -1))
             val moon = MoonlightPane(p.context, this)
@@ -902,6 +940,11 @@ class VrRoomActivity : Activity() {
     }
 
     private fun teardownBrowser() {
+        tvArcade?.let { arcade ->
+            (arcade.parent as? android.view.ViewGroup)?.removeView(arcade)
+            arcade.destroy()
+        }
+        tvArcade = null
         try { tvMoon?.close() } catch (_: Exception) {}
         tvBox = null; tvHome = null; tvMoon = null; tvSaber = null; tvHomeBtn = null; tvApps = null
         try { pres?.dismiss() } catch (_: Exception) {}
@@ -975,6 +1018,7 @@ class VrRoomActivity : Activity() {
     }
 
     private fun exitVr() {
+        objectUi.cancelCapture()
         vrMode = false
         extras?.stop()
         stopHub()
@@ -1004,6 +1048,11 @@ class VrRoomActivity : Activity() {
             return
         }
         try {
+            if (!state.sixDof || ArCoreApk.getInstance().checkAvailability(this).isUnsupported) {
+                startDirectCamera()
+                return
+            }
+            stopDirectCamera()
             val status = ArCoreApk.getInstance().requestInstall(this, !installRequested)
             if (status == ArCoreApk.InstallStatus.INSTALL_REQUESTED) {
                 installRequested = true
@@ -1039,12 +1088,32 @@ class VrRoomActivity : Activity() {
             state.arState = 1
             startHands()
         } catch (e: Exception) {
-            state.sixDof = false
-            state.handsOn = false
-            state.passthrough = false
-            state.arState = 0
-            toast("6DoF/mãos/câmera indisponíveis (${e.javaClass.simpleName}). Usando só rotação.")
+            Log.i("VRRoom", "ARCore indisponível, usando a câmera Android", e)
+            startDirectCamera()
         }
+    }
+
+    private fun startDirectCamera() {
+        renderer.arRunning = false
+        try { arSession?.pause() } catch (_: Exception) {}
+        state.sixDof = false
+        state.arState = 0
+        if (!state.handsOn && !state.passthrough) { stopDirectCamera(); return }
+        startHands()
+        if (directCamera != null) return
+        lateinit var camera: DirectHandsCamera
+        camera = DirectHandsCamera(this) { message ->
+            runOnUiThread { if (directCamera === camera) { stopDirectCamera(); toast(message) } }
+        }
+        directCamera = camera
+        renderer.directCamera = camera
+        camera.start(if (state.lite) 320 else 640, if (state.lite) 240 else 480)
+    }
+
+    private fun stopDirectCamera() {
+        renderer.directCamera = null
+        directCamera?.close()
+        directCamera = null
     }
 
     /** Mãos ficam a ~20-60 cm da câmera: precisam de foco automático. Só 6DoF: foco fixo rastreia melhor. */
@@ -1106,6 +1175,7 @@ class VrRoomActivity : Activity() {
     }
 
     private fun stopAr() {
+        stopDirectCamera()
         stopHands()
         renderer.arRunning = false
         state.arState = 0
@@ -1142,6 +1212,7 @@ class VrRoomActivity : Activity() {
     // ---- "TV" da Sala 3D: Home com apps (Navegador, Moonlight). Novos apps entram em TvHome.tiles + applyTvVisibility().
     private var tvBox: FrameLayout? = null
     private var tvHome: View? = null
+    private var tvArcade: WebView? = null
     private var tvMoon: MoonlightPane? = null
     private var tvSaber: StormSaberPane? = null
     private var tvHomeBtn: View? = null
@@ -1151,6 +1222,7 @@ class VrRoomActivity : Activity() {
     private var trackSession = false
 
     private fun showTv(app: Int) {
+        if (tvApp == TvApp.ARCADE && app != tvApp) tvArcade?.evaluateJavascript("window.pauseArcade?.()", null)
         val leaving = tvApp
         tvApp = app
         if (leaving == TvApp.MOONLIGHT && app != TvApp.MOONLIGHT) tvMoon?.close()
@@ -1159,6 +1231,7 @@ class VrRoomActivity : Activity() {
 
     private fun applyTvVisibility() {
         web?.visibility = if (tvApp == TvApp.BROWSER) View.VISIBLE else View.GONE
+        tvArcade?.visibility = if (tvApp == TvApp.ARCADE) View.VISIBLE else View.GONE
         tvHome?.visibility = if (tvApp == TvApp.HOME) View.VISIBLE else View.GONE
         tvMoon?.visibility = if (tvApp == TvApp.MOONLIGHT) View.VISIBLE else View.GONE
         tvSaber?.visibility = if (tvApp == TvApp.SABER) View.VISIBLE else View.GONE
@@ -1463,6 +1536,10 @@ class VrRoomActivity : Activity() {
         }
         val l1 = "GL ${state.glFps} fps  |  ARCore: $ar  |  Mãos: $hs"
         var l2 = tracker?.info() ?: "tracker não iniciado"
+        if (state.objectController.enabled) {
+            val slot = state.objectController.live()?.slot
+            l2 += when (slot) { 0 -> " | objeto: esquerda"; 1 -> " | objeto: direita"; else -> " | procurando objeto" }
+        }
         if (state.heldObjectControl) {
             val score = synchronized(state.handLock) { state.handGripScore.maxOrNull() ?: 0f }
             l2 += " | pegada ${if (score >= 0.62f) "detectada" else "não detectada"} (${(score * 100).toInt()}%)"
@@ -1620,8 +1697,18 @@ class VrRoomActivity : Activity() {
 
             if (s.heldObjectControl && grip) pinch = true
 
+            val trackedObject = s.objectController.live()?.takeIf { has && it.slot == i }
+            if (trackedObject != null) {
+                px = trackedObject.x; py = trackedObject.y; pz = trackedObject.z
+            }
+
             var handPressed = false
-            if (has && s.handLasers && handAimPoint(i, px, py, pz, hitTmp)) {
+            val hit = has && s.handLasers && if (trackedObject != null) {
+                val dx = px - s.headX; val dy = py - s.headY; val dz = pz - s.headZ
+                val length = sqrt(dx*dx + dy*dy + dz*dz).coerceAtLeast(.001f)
+                s.intersectSurface(s.headX, s.headY, s.headZ, dx / length, dy / length, dz / length, hitTmp)
+            } else handAimPoint(i, px, py, pz, hitTmp)
+            if (hit) {
                 // estabiliza o cursor: parado = bem suave (tira o tremor); movendo rápido = quase sem atraso
                 tmp2[0] = hitTmp[0]
                 tmp2[1] = hitTmp[1]

@@ -28,8 +28,20 @@ object SongLibrary {
         val r = root(ctx)
         extractZips(r)
         val out = ArrayList<Song>()
+        val demo = File(ctx.filesDir, "storm-music/pulso-v1")
+        demo.mkdirs()
+        for (name in listOf("Info.dat", "Normal.dat", "pulso.ogg")) {
+            val file = File(demo, name)
+            if (!file.isFile || file.length() == 0L) {
+                val temp = File(demo, "$name.part")
+                ctx.assets.open("music/$name").use { input -> temp.outputStream().use { input.copyTo(it) } }
+                check(temp.renameTo(file)) { "Falha ao preparar a faixa de treino" }
+            }
+        }
+        load(demo)?.let { out.add(it) }
         for (d in (r.listFiles() ?: emptyArray()).filter { it.isDirectory }.sortedBy { it.name.lowercase() }) {
-            try { load(d)?.let { out.add(it) } } catch (_: Throwable) { }
+            val maps = if (find(d, "info.dat") != null) listOf(d) else d.listFiles().orEmpty().filter { it.isDirectory }
+            maps.forEach { folder -> try { load(folder)?.let { out.add(it) } } catch (_: Exception) { } }
         }
         return out
     }

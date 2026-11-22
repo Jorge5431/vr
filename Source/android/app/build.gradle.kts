@@ -8,11 +8,12 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.stormvr.app"
+        applicationId = "com.stormvr.app.motion.preview"
+        ndk { abiFilters += "arm64-v8a" }
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.4.2"
+        versionCode = 7
+        versionName = "2.1.0"
     }
     buildTypes {
         release { isMinifyEnabled = false }

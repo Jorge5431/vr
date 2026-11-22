@@ -329,7 +329,7 @@ class StormSaberPane(ctx: Context) : FrameLayout(ctx) {
         st = St.SONGS; stopGameAudio(); clearMenu()
         if (songs.isEmpty()) {
             menu.addView(tv("Nenhuma música encontrada", 0.045f, PURPLE))
-            menu.addView(tv("Baixe músicas do BeatSaver / BeastSaber e coloque (pasta ou .zip) em:\nAndroid/data/com.stormvr.app/files/Playlists/", 0.026f).apply { setPadding(0, unit / 40, 0, unit / 40) })
+            menu.addView(tv("Baixe músicas do BeatSaver / BeastSaber e coloque (pasta ou .zip) em:\nAndroid/data/${context.packageName}/files/Playlists/", 0.026f).apply { setPadding(0, unit / 40, 0, unit / 40) })
             menu.addView(hRow(btn("Atualizar lista", true) { songs = try { SongLibrary.scan(context) } catch (_: Throwable) { emptyList() }; showSongs() }, btn("‹  Voltar") { showTitle() }))
             return
         }
@@ -425,6 +425,10 @@ class StormSaberPane(ctx: Context) : FrameLayout(ctx) {
 
     private fun startGame(s: SongLibrary.Song, d: SongLibrary.Diff) {
         stopPreview(); stopGameAudio()
+        if (s.audio?.isFile != true) {
+            android.widget.Toast.makeText(context, "Áudio ausente em ${s.name}. Confira o arquivo indicado no Info.dat.", android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         val raw = try { SongLibrary.notes(s, d) } catch (_: Throwable) { emptyList() }
         if (raw.isEmpty()) { showSongs(); status = "Mapa sem notas ou formato não suportado"; return }
         val n = fixNotes(raw)
@@ -442,12 +446,21 @@ class StormSaberPane(ctx: Context) : FrameLayout(ctx) {
                     setDataSource(f.path)
                     setOnPreparedListener { audioReady = true }
                     setOnCompletionListener { audioDone = true; doneAtMs = SystemClock.uptimeMillis() }
-                    setOnErrorListener { _, _, _ -> audioReady = true; game = null; true }
+                    setOnErrorListener { player, _, _ ->
+                        if (game === player) soundFailed()
+                        true
+                    }
                     prepareAsync()
                 }
-            } catch (_: Throwable) { audioReady = true; game = null }
+            } catch (_: Exception) { soundFailed(); return }
         } else audioReady = true                                                          // sem áudio: toca em silêncio
         status = ""; st = St.PLAY; menuShown = false; applyVis()
+    }
+
+    private fun soundFailed() {
+        stopGameAudio()
+        showSongs()
+        android.widget.Toast.makeText(context, "Não foi possível tocar esta faixa. Confira o formato de áudio.", android.widget.Toast.LENGTH_LONG).show()
     }
 
     private fun endGame() { stopGameAudio(); cubes.clear(); pieces.clear(); popups.clear() }
@@ -524,7 +537,7 @@ class StormSaberPane(ctx: Context) : FrameLayout(ctx) {
         // relógio da música (preload de 1,1 s antes do áudio, como o BeatsPreloadTime do original)
         if (!audioStarted) {
             preload += dt; T = preload - ANTIC
-            if (preload >= ANTIC && audioReady) { audioStarted = true; T = 0f; try { game?.start() } catch (_: Throwable) { } ; if (game == null) { audioDone = false } }
+            if (preload >= ANTIC && audioReady) { audioStarted = true; T = 0f; try { game?.start() } catch (_: IllegalStateException) { soundFailed(); return } }
         } else {
             T += dt
             val g = game

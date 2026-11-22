@@ -72,7 +72,8 @@ class StormSaberActivity : Activity() {
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
         Immersive.apply(this)
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        requestedOrientation = if (Prefs(this).orientation == 1) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                               else ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         ControllerHub.start(this)
         if (BleController.hasPermission(this)) BleController.start(applicationContext)

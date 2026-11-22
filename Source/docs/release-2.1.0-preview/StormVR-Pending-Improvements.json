@@ -1,0 +1,46 @@
+{
+  "version": "2.1.0-preview",
+  "all_requirements_complete": false,
+  "pending": [
+    {
+      "feature": "Validação física",
+      "detail": "Teste no RMX3562, pareamento Apollo, áudio, mão/objeto, SteamVR e benchmarks de resolução/latência/consumo.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Apollo HTTP 403",
+      "detail": "Causa não reproduzida; fluxo de pareamento revisado, correção final não comprovada.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Paridade 2.0.2",
+      "detail": "Fonte original e chave ausentes; prévia reconstruída não comprova preservar cada comportamento da 2.0.2.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Objeto universal",
+      "detail": "Cadastro visual implementado; reconhecimento sem cadastro e pose 6DoF independente não implementados.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Diagnóstico dos landmarks",
+      "detail": "Faltam tabela de coordenadas, IDs e comparação bruto/filtrado/reconstruído por ponto.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Gestos e oclusão",
+      "detail": "Faltam novo gatilho por indicador, calibração individual de pinça e transição visual suave integral.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Jogos imersivos e Home",
+      "detail": "Cinco minijogos de tela entregues; mundos VR completos e Home totalmente renovada pendentes.",
+      "status": "PENDENTE"
+    },
+    {
+      "feature": "Anatomia e precisão",
+      "detail": "Restrições e filtros melhorados; ausência de todas as deformações, colisão com palma e ganho de precisão não comprovados.",
+      "status": "PENDENTE"
+    }
+  ]
+}

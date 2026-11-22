@@ -35,7 +35,7 @@ class HandsFrame(
 )
 
 /** Filtro One Euro: tira o tremor quando a mão está parada e quase não atrasa quando ela se move. */
-class OneEuro(private val n: Int, var minCutoff: Float, private val beta: Float, private val dCutoff: Float) {
+class OneEuro(private val n: Int, var minCutoff: Float, var beta: Float, private val dCutoff: Float) {
     private val xPrev = FloatArray(n)
     private val dxPrev = FloatArray(n)
     private var tPrev = 0f
@@ -569,7 +569,8 @@ class HandTracker(
         val label: String,
         val score: Float,
         val x0: Float, val y0: Float, val x1: Float, val y1: Float,
-        val depth: Float = 0f
+        val depth: Float = 0f,
+        val gripX: Float, val gripY: Float, val span: Float
     ) {
         val cx get() = (x0 + x1) * 0.5f
         val cy get() = (y0 + y1) * 0.5f
@@ -658,7 +659,7 @@ class HandTracker(
         val lm = landmarker ?: return
         if (j.w <= 0 || j.h <= 0 || j.y.isEmpty()) return
         phase = "converter"
-        val half = st.lite || autoHalf
+        val half = st.lite || autoHalf || st.motionProfile == 3
         val bm = if (half) convertHalf(j) else convert(j)
         val ow = bm.width
         val oh = bm.height
@@ -751,7 +752,8 @@ class HandTracker(
             val ratioMix = 0.5f * (r2 + r3)
             val cat = if (k < hands.size && hands[k].isNotEmpty()) hands[k][0] else null
             raw.add(Det(out, nl[0].x(), ratioMix,
-                cat?.categoryName() ?: "", cat?.score() ?: 0f, bx0, by0, bx1, by1, zc))
+                cat?.categoryName() ?: "", cat?.score() ?: 0f, bx0, by0, bx1, by1, zc,
+                (nl[4].x() + nl[8].x()) * .5f * ow, (nl[4].y() + nl[8].y()) * .5f * oh, size2))
         }
 
         // remove duplicatas (a mesma mão detectada duas vezes): sobreposição alta ou centros muito próximos
@@ -804,6 +806,13 @@ class HandTracker(
         }
 
         val seen = BooleanArray(2)
+        val objectControl = st.objectController
+        if (objectControl.enabled || objectControl.capture.get() != null) {
+            val objectHands = dets.mapIndexedNotNull { index, d ->
+                if (slot[index] < 0) null else ObjectHand(slot[index], d.gripX, d.gripY, d.span, d.depth)
+            }
+            objectControl.update(argb, ow, oh, objectHands, fx, fy, cx, cy, pose, now)
+        } else objectControl.clear()
         for (i in dets.indices) {
             val h = slot[i]
             if (h < 0) continue
@@ -817,6 +826,9 @@ class HandTracker(
             }
             if (conf[h] < 10) conf[h]++
             val dtH = (tSec - prevT[h]).coerceAtLeast(1e-3f)
+            val profile = st.motionProfile.coerceIn(0, 3)
+            filters[h].minCutoff = floatArrayOf(1.2f, 2.2f, 3.5f, 1.8f)[profile]
+            filters[h].beta = floatArrayOf(12f, 28f, 40f, 20f)[profile]
             filters[h].apply(d.pts, tSec)
             priors[h].enforce(d.pts, d.score > 0.6f && d.ratio > 0.55f)          // projeta a pose já filtrada para manter comprimentos ósseos estáveis
             filters[h].synchronize(d.pts)

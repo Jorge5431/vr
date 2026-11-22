@@ -133,6 +133,7 @@ class PcLink(
                 val hx = st.headX
                 val hy = st.headY
                 val hz = st.headZ
+                val trackedObject = st.objectController.live(nowH)
 
                 buf.clear()
                 buf.putInt(KBT_HAND_MAGIC)
@@ -157,11 +158,15 @@ class PcLink(
                         val cx = (p[0] + p[15] + p[27] + p[39] + p[51]) / 5f
                         val cy = (p[1] + p[16] + p[28] + p[40] + p[52]) / 5f
                         val cz = (p[2] + p[17] + p[29] + p[41] + p[53]) / 5f
-                        val dx = cx - hx; val dy = cy - hy; val dz = cz - hz
+                        val mark = trackedObject?.takeIf { it.slot == i }
+                        val dx = (mark?.x ?: cx) - hx
+                        val dy = (mark?.y ?: cy) - hy
+                        val dz = (mark?.z ?: cz) - hz
                         px = dx * rx + dy * ry
                         py = dz
                         pz = -(dx * fx + dy * fy)
                         var vx = p[27] - p[0]; var vy = p[28] - p[1]; var vz = p[29] - p[2]     // pulso -> base do dedo médio
+                        if (mark != null) { vx = dx; vy = dy; vz = dz }
                         val vn = sqrt(vx * vx + vy * vy + vz * vz).coerceAtLeast(1e-5f)
                         vx /= vn; vy /= vn; vz /= vn
                         ax = vx * rx + vy * ry
