@@ -21,7 +21,8 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
     init {
         controller.pattern = ObjectAppearance.decode(prefs.getString("sample", null))
         controller.alternatePattern = ObjectAppearance.decode(prefs.getString("sample_second_view", null))
-        controller.enabled = controller.pattern != null && prefs.getBoolean("enabled", false)
+        controller.penMode = prefs.getBoolean("pen_mode", true)
+        controller.enabled = (controller.penMode || controller.pattern != null) && prefs.getBoolean("enabled", false)
     }
 
     private fun message(text: String) = Toast.makeText(activity, text, Toast.LENGTH_LONG).show()
@@ -36,15 +37,28 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
     fun addTo(panel: LinearLayout, startCamera: () -> Unit) {
         val enabled = CheckBox(activity).apply {
             setTextColor(Color.WHITE)
-            text = "Usar a caneta/objeto cadastrado como um controle"
+            text = "Usar caneta/objeto como controle"
             isChecked = controller.enabled
-            isEnabled = controller.pattern != null
+            isEnabled = controller.penMode || controller.pattern != null
             setOnCheckedChangeListener { _, value ->
                 controller.enabled = value
                 prefs.edit().putBoolean("enabled", value).apply()
             }
         }
         panel.addView(enabled)
+        val penModeOption = CheckBox(activity).apply {
+            setTextColor(Color.WHITE)
+            text = "Reconhecer STABILO point 88 azul pelas cores e formato"
+            isChecked = controller.penMode
+            setOnCheckedChangeListener { _, value ->
+                controller.penMode = value
+                controller.clear()
+                prefs.edit().putBoolean("pen_mode", value).apply()
+                enabled.isEnabled = value || controller.pattern != null
+                if (!enabled.isEnabled) enabled.isChecked = false
+            }
+        }
+        panel.addView(penModeOption)
         panel.addView(Button(activity).apply {
             isAllCaps = false
             text = "Cadastrar a ponta da caneta/objeto"
@@ -56,10 +70,13 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
                             showPhoto(photo) { appearance ->
                                 controller.pattern = appearance
                                 controller.alternatePattern = null
+                                controller.penMode = false
+                                penModeOption.isChecked = false
                                 enabled.isEnabled = true
                                 enabled.isChecked = true
                                 controller.enabled = true
-                                prefs.edit().putString("sample", appearance.encode()).remove("sample_second_view").putBoolean("enabled", true).apply()
+                                prefs.edit().putString("sample", appearance.encode()).remove("sample_second_view")
+                                    .putBoolean("enabled", true).putBoolean("pen_mode", false).apply()
                                 message("Ponta cadastrada. Ela controla a mão que a segura; pinça seleciona.")
                             }
                         }
@@ -103,7 +120,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
         })
         panel.addView(TextView(activity).apply {
             setTextColor(Color.LTGRAY)
-            text = "Cadastre uma ponta ou marca visível perto dos dedos. A segunda vista ajuda quando a caneta gira. A câmera estima a distância pela mão; isto registra detalhes visuais, não gera uma malha 3D da caneta."
+            text = "Para a STABILO das fotos, ative o reconhecimento acima: a câmera procura o corpo laranja e a tampa azul, estima a direção 3D pela mão e pelo comprimento aproximado de 16 cm. Mantenha corpo e tampa visíveis. Para outro objeto, cadastre uma marca abaixo. A direção em profundidade é estimada, não medida."
         })
     }
 

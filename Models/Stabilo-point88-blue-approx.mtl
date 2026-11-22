@@ -1,0 +1,8 @@
+newmtl orange
+Kd 0.98 0.52 0.02
+newmtl blue
+Kd 0.04 0.16 0.69
+newmtl white
+Kd 0.96 0.96 0.93
+newmtl dark
+Kd 0.03 0.03 0.04

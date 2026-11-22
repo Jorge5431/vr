@@ -174,9 +174,9 @@ class PcLink(
                         pz = -(dx * fx + dy * fy)
                         val hasPalmAim = mark == null && HandControllerAim.direction(p, palmAim)
                         if (mark != null || hasPalmAim || dx * dx + dy * dy + dz * dz > 1e-4f) {
-                            val vx = if (hasPalmAim) palmAim[0] else dx
-                            val vy = if (hasPalmAim) palmAim[1] else dy
-                            val vz = if (hasPalmAim) palmAim[2] else dz
+                            val vx = if (mark?.pen == true) mark.dirX else if (hasPalmAim) palmAim[0] else dx
+                            val vy = if (mark?.pen == true) mark.dirY else if (hasPalmAim) palmAim[1] else dy
+                            val vz = if (mark?.pen == true) mark.dirZ else if (hasPalmAim) palmAim[2] else dz
                             val vn = sqrt(vx * vx + vy * vy + vz * vz).coerceAtLeast(1e-5f)
                             ax = (vx / vn) * rx + (vy / vn) * ry
                             ay = vz / vn

@@ -1753,9 +1753,13 @@ class VrRoomActivity : Activity() {
 
             var handPressed = false
             val hit = has && s.handLasers && if (trackedObject != null) {
-                val dx = px - s.headX; val dy = py - s.headY; val dz = pz - s.headZ
+                val dx = if (trackedObject.pen) trackedObject.dirX else px - s.headX
+                val dy = if (trackedObject.pen) trackedObject.dirY else py - s.headY
+                val dz = if (trackedObject.pen) trackedObject.dirZ else pz - s.headZ
                 val length = sqrt(dx*dx + dy*dy + dz*dz).coerceAtLeast(.001f)
-                s.intersectSurface(s.headX, s.headY, s.headZ, dx / length, dy / length, dz / length, hitTmp)
+                s.intersectSurface(if (trackedObject.pen) px else s.headX,
+                    if (trackedObject.pen) py else s.headY, if (trackedObject.pen) pz else s.headZ,
+                    dx / length, dy / length, dz / length, hitTmp)
             } else handAimPoint(i, px, py, pz, hitTmp)
             if (hit) {
                 // estabiliza o cursor: parado = bem suave (tira o tremor); movendo rápido = quase sem atraso
