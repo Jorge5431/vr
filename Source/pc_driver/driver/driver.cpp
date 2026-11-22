@@ -2178,6 +2178,15 @@ void Provider::Loop() {
                 st.fing[fi] += Clampf(tf - st.fing[fi], -rampG, rampG);
                 ps.fing[fi] = st.fing[fi];
             }
+            if (handLive && handTracked[h] && (hdi.pkt.flags & KBT_HAND_F_CURL)) {
+                const KbtHandSide& side = hdi.pkt.side[h == HAND_RIGHT ? 1 : 0];
+                const uint32_t packed = uint32_t(side.reserved[0]) |
+                    (uint32_t(side.reserved[1]) << 8) | (uint32_t(side.reserved[2]) << 16);
+                if ((packed >> 20) == 0xA) {
+                    for (int fi = 0; fi < 5; ++fi)
+                        ps.fing[fi] = std::max(ps.fing[fi], float((packed >> (fi * 4)) & 15u) / 15.f);
+                }
+            }
             float sx = (K(A_STICK_RIGHT) ? 1.f : 0.f) - (K(A_STICK_LEFT) ? 1.f : 0.f);
             float sy = (K(A_STICK_UP) ? 1.f : 0.f) - (K(A_STICK_DOWN) ? 1.f : 0.f);
             if (std::fabs(esx) > 0.001f || std::fabs(esy) > 0.001f) { sx = esx; sy = esy; }

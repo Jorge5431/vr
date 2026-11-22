@@ -147,6 +147,7 @@ class PcLink(
                 if (sendPos) fl = fl or F_POS
                 if (sendPinch || st.heldObjectControl) fl = fl or F_PINCH
                 fl = fl or F_GRIP
+                fl = fl or F_CURL
                 buf.putShort(fl.toShort())
                 buf.putShort(0)
                 for (i in 0..1) {                                 // [0] = esquerda, [1] = direita (igual ao VrState)
@@ -177,7 +178,9 @@ class PcLink(
                         ay = vz
                         az = -(vx * fx + vy * fy)
                     }
-                    buf.put(sf.toByte()); buf.put(0); buf.put(0); buf.put(0)
+                    val curls = if (valid[i]) FingerCurls.pack(pts[i]) else 0
+                    buf.put(sf.toByte())
+                    buf.put(curls.toByte()); buf.put((curls ushr 8).toByte()); buf.put((curls ushr 16).toByte())
                     buf.putFloat(px); buf.putFloat(py); buf.putFloat(pz)
                     buf.putFloat(ax); buf.putFloat(ay); buf.putFloat(az)
                     buf.putFloat(ratio[i])
@@ -201,5 +204,6 @@ class PcLink(
         const val F_POS = 1
         const val F_PINCH = 2
         const val F_GRIP = 4
+        const val F_CURL = 8
     }
 }
