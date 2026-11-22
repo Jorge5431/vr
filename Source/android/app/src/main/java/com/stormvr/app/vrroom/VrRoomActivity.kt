@@ -1555,7 +1555,7 @@ class VrRoomActivity : Activity() {
             l2 += when (slot) { 0 -> " | objeto: esquerda"; 1 -> " | objeto: direita"; else -> " | procurando objeto" }
             l2 += " | ${state.objectController.status}"
         }
-        if (state.heldObjectControl) {
+        if (state.heldObjectControl || state.pcMode) {
             val score = synchronized(state.handLock) { state.handGripScore.maxOrNull() ?: 0f }
             l2 += " | pegada ${if (score >= 0.62f) "detectada" else "não detectada"} (${(score * 100).toInt()}%)"
         }

@@ -1921,7 +1921,7 @@ void Provider::Loop() {
         const bool modDepth = keys && KeyDown(cfg.kDepth);
 
         // ------------------------------------------------ Maos rastreadas pela camera do celular (Sala VR)
-        bool handPosOk[HAND_COUNT] = {}, handAimOk[HAND_COUNT] = {}, handPinchOk[HAND_COUNT] = {}, handTracked[HAND_COUNT] = {}, handPinchRaw[HAND_COUNT] = {};
+        bool handPosOk[HAND_COUNT] = {}, handAimOk[HAND_COUNT] = {}, handPinchOk[HAND_COUNT] = {}, handGripOk[HAND_COUNT] = {}, handTracked[HAND_COUNT] = {}, handPinchRaw[HAND_COUNT] = {};
         bool posCtl[HAND_COUNT] = {};          // posicao vinda do PROPRIO controle (celular 6DoF): referencial do controle, nao o do corpo/cabeca
         float handPos[HAND_COUNT][3] = {}, handAim[HAND_COUNT][3] = {};
         const HandReceiver::Info hdi = hand_.Get();
@@ -1935,6 +1935,7 @@ void Provider::Loop() {
                 handPosOk[h] = tr && (hdi.pkt.flags & KBT_HAND_F_POS) && cfg.handsPos[h];
                 handAimOk[h] = tr && (hdi.pkt.flags & KBT_HAND_F_POS) && cfg.handsAim[h];
                 handPinchOk[h] = handPinchRaw[h] && (hdi.pkt.flags & KBT_HAND_F_PINCH) && cfg.handsPinch[h];
+                handGripOk[h] = tr && (sd.flags & KBT_HS_GRIP) && (hdi.pkt.flags & KBT_HAND_F_GRIP);
                 for (int i = 0; i < 3; ++i) { handPos[h][i] = sd.pos[i]; handAim[h][i] = sd.aim[i]; }
             }
         }
@@ -2154,6 +2155,7 @@ void Provider::Loop() {
                 eTrig = outAny[O_L_TRIGGER]; eGrip = outAny[O_L_GRIP]; eClick = outAny[O_L_CLICK];
             }
             if (handPinchOk[h]) eTrig = true;                                                // pinca = trigger (nao altera o mapeamento dos botoes)
+            if (handGripOk[h]) eGrip = true;
             if (e.linked) { esx = e.sx; esy = e.sy; }                                      // o analogico vai a mao do proprio controle
 
             // Botoes e analogicos (teclado + controle real)

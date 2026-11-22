@@ -114,8 +114,10 @@ struct KbtHeadPacket {
 #define KBT_PORT_HAND    5557
 #define KBT_HAND_F_POS   (1u << 0)     // o app permite usar a POSICAO das maos
 #define KBT_HAND_F_PINCH (1u << 1)     // o app permite usar a PINCA como trigger
+#define KBT_HAND_F_GRIP  (1u << 2)     // o app permite usar pegada como grip
 #define KBT_HS_TRACKED   (1u << 0)     // mao vista pela camera neste quadro
 #define KBT_HS_PINCH     (1u << 1)     // pinca fechada (polegar + indicador)
+#define KBT_HS_GRIP      (1u << 2)     // pegada fechada, independente da pinça
 struct KbtHandSide {
     uint8_t flags;                 // KBT_HS_*
     uint8_t reserved[3];

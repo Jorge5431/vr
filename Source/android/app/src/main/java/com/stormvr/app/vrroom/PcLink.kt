@@ -64,6 +64,7 @@ class PcLink(
         val valid = BooleanArray(2)
         val pinch = BooleanArray(2)
         val ratio = FloatArray(2)
+        val grip = BooleanArray(2)
         var seq = 0
         var fx = 0f
         var fy = 1f
@@ -120,6 +121,7 @@ class PcLink(
                         valid[i] = st.handsOn && st.handValid[i]
                         pinch[i] = (sendPinch && st.handPinch[i]) || (st.heldObjectControl && st.handGrip[i])
                         ratio[i] = st.handRatio[i]
+                        grip[i] = st.handGrip[i]
                         if (valid[i]) System.arraycopy(st.handPts[i], 0, pts[i], 0, 63)
                     }
                 }
@@ -144,6 +146,7 @@ class PcLink(
                 var fl = 0
                 if (sendPos) fl = fl or F_POS
                 if (sendPinch || st.heldObjectControl) fl = fl or F_PINCH
+                fl = fl or F_GRIP
                 buf.putShort(fl.toShort())
                 buf.putShort(0)
                 for (i in 0..1) {                                 // [0] = esquerda, [1] = direita (igual ao VrState)
@@ -153,6 +156,7 @@ class PcLink(
                     if (valid[i]) {
                         sf = 1
                         if (pinch[i]) sf = sf or 2
+                        if (grip[i]) sf = sf or 4
                         val p = pts[i]
                         // centro da palma: pulso (0) e bases do indicador, médio, anelar e mindinho (5, 9, 13, 17)
                         val cx = (p[0] + p[15] + p[27] + p[39] + p[51]) / 5f
@@ -196,5 +200,6 @@ class PcLink(
         const val KBT_HAND_MAGIC = 0x3148424B
         const val F_POS = 1
         const val F_PINCH = 2
+        const val F_GRIP = 4
     }
 }
