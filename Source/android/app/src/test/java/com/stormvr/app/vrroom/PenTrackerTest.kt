@@ -33,6 +33,22 @@ class PenTrackerTest {
         assertNull(PenTracker.find(frame(), w, h, listOf(hand.copy(x = 0f, y = 0f, span = 10f))))
     }
 
+    @Test fun ignoresOrangeBackgroundAndUsesBlueAreaWhenHandHidesBarrel() {
+        val rgb = frame()
+        for (y in 8..40) for (x in 5..38) rgb[y*w+x] = 0xffefa01c.toInt()
+        val result = PenTracker.find(rgb, w, h, listOf(hand))!!
+        assertTrue(result.axisX > .9f)
+        assertEquals(129f, result.tipX, 2f)
+
+        val obscured = IntArray(w*h) { 0xff777777.toInt() }
+        for (y in 47..53) for (x in 42..107) obscured[y*w+x] = 0xffefa01c.toInt()
+        for (y in 46..54) for (x in 108..121) obscured[y*w+x] = 0xff194ac7.toInt()
+        for (y in 48..52) for (x in 26..40) obscured[y*w+x] = 0xff194ac7.toInt()
+        val cap = PenTracker.find(obscured, w, h, listOf(hand))!!
+        assertTrue(cap.axisX > .9f)
+        assertEquals(121f, cap.tipX, 2f)
+    }
+
     @Test fun controllerPublishesThreeDimensionalPenDirectionAfterTwoFrames() {
         val controller = ObjectController().apply { enabled = true; penMode = true }
         val pose = FloatArray(16) { if (it % 5 == 0) 1f else 0f }

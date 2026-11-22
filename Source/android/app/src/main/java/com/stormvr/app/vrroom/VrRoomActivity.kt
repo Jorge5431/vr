@@ -184,7 +184,7 @@ class VrRoomActivity : Activity() {
         state.pcSendPos = p.getBoolean("pcpos", true)
         state.pcSendPinch = p.getBoolean("pcpinch", true)
         state.heldObjectControl = p.getBoolean("held_object_control", false)
-        state.showLaserBeams = p.getBoolean("show_laser_beams", true)
+        state.showLaserBeams = p.getBoolean("show_laser_beams", false)
         ControllerHub.swapHands = p.getBoolean("swap", false)
         hubInvYaw = p.getBoolean("iy", false)
         hubInvPitch = p.getBoolean("ip", false)
@@ -284,6 +284,7 @@ class VrRoomActivity : Activity() {
             state.handsOn = true
             state.twoHands = true
             state.handSource = 0
+            state.showLaserBeams = false
         }
         renderer = VrRenderer(this, state, ui) { s -> runOnUiThread { onTexSurface(s) } }
         glView = GLSurfaceView(this).apply {
@@ -448,7 +449,7 @@ class VrRoomActivity : Activity() {
             setOnCheckedChangeListener { _, c -> state.handLasers = c }
         }
         val beamBox = CheckBox(this).apply {
-            text = "Mostrar linhas vermelha e azul dos controles"
+            text = "Mostrar linhas dos controles (sem rastreamento de mãos)"
             isChecked = state.showLaserBeams
             setTextColor(Color.WHITE)
             setOnCheckedChangeListener { _, visible -> state.showLaserBeams = visible; savePrefs() }
@@ -1372,6 +1373,7 @@ class VrRoomActivity : Activity() {
             val oy = s.headY + 0.40f
             val oz = s.headZ - 0.35f
             s.laserHand[i] = false
+            s.laserVisible[i] = true
             s.lox[i] = ox; s.loy[i] = oy; s.loz[i] = oz
             s.rox[i] = ox; s.roy[i] = oy; s.roz[i] = oz
             if (s.intersectSurface(ox, oy, oz, dx, dy, dz, hubHit)) {
@@ -1434,6 +1436,7 @@ class VrRoomActivity : Activity() {
             val oy = s.headY + 0.40f
             val oz = s.headZ - 0.35f
             s.laserHand[i] = false
+            s.laserVisible[i] = true
             s.lox[i] = ox; s.loy[i] = oy; s.loz[i] = oz
             s.rox[i] = ox; s.roy[i] = oy; s.roz[i] = oz
             if (s.intersectSurface(ox, oy, oz, dx, dy, dz, hubHit)) {
@@ -1485,6 +1488,7 @@ class VrRoomActivity : Activity() {
         val oy = s.headY
         val oz = s.headZ
         s.laserHand[1] = false
+        s.laserVisible[1] = true
         s.lox[1] = ox; s.loy[1] = oy + 0.05f; s.loz[1] = oz - 0.12f
         s.rox[1] = ox; s.roy[1] = oy; s.roz[1] = oz
         if (s.intersectSurface(ox, oy, oz, g[0], g[1], g[2], hubHit)) {
@@ -1712,6 +1716,7 @@ class VrRoomActivity : Activity() {
         val s = state
         for (i in 0..1) {
             s.laserHand[i] = false
+            s.laserVisible[i] = false
             s.ballOn[i] = false
             val ox = s.headX + (if (i == 0) -0.28f else 0.28f)
             val oy = s.headY + 0.45f
@@ -1834,6 +1839,7 @@ class VrRoomActivity : Activity() {
                 s.lox[i] = px; s.loy[i] = py; s.loz[i] = pz          // o laser nasce no meio da pinça
                 s.rox[i] = s.headX; s.roy[i] = s.headY; s.roz[i] = s.headZ   // e a seleção parte do olho
                 s.laserHand[i] = true
+                s.laserVisible[i] = true
                 // bolinha = cursor: na linha olho -> alvo, na distância da mão
                 s.surfPoint(ns, nz, 0f, bp)
                 val bdx = bp[0] - s.headX

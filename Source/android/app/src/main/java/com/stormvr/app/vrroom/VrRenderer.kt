@@ -1403,6 +1403,7 @@ class VrRenderer(
     private fun drawLasers() {
         GLES20.glUseProgram(roomProg)
         for (i in 0..1) {
+            if (st.handsOn && !st.laserVisible[i]) continue
             val left = i == 0
             val pressed = st.pressed[i]
             val ox = st.lox[i]
@@ -1413,9 +1414,9 @@ class VrRenderer(
             val tz = st.hitZ[i]
 
             val color = if (pressed) cPressed else if (left) cLaserL else cLaserR
-            if (st.showLaserBeams && !st.laserHand[i]) drawBeam(ox, oy, oz, tx, ty, tz, if (pressed) 0.012f else 0.006f, color)
+            if (st.showLaserBeams && !st.handsOn && !st.laserHand[i]) drawBeam(ox, oy, oz, tx, ty, tz, if (pressed) 0.012f else 0.006f, color)
 
-            if (st.showLaserBeams && !st.laserHand[i]) {
+            if (st.showLaserBeams && !st.handsOn && !st.laserHand[i]) {
                 val dx = tx - ox; val dy = ty - oy; val dz = tz - oz
                 val l = sqrt(dx * dx + dy * dy + dz * dz)
                 drawBeam(ox - dx / l * 0.18f, oy - dy / l * 0.18f, oz - dz / l * 0.18f,

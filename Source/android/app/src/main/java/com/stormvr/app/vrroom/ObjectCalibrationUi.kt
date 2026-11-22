@@ -22,7 +22,8 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
         controller.pattern = ObjectAppearance.decode(prefs.getString("sample", null))
         controller.alternatePattern = ObjectAppearance.decode(prefs.getString("sample_second_view", null))
         controller.penMode = prefs.getBoolean("pen_mode", true)
-        controller.enabled = (controller.penMode || controller.pattern != null) && prefs.getBoolean("enabled", false)
+        controller.enabled = (controller.penMode || controller.pattern != null) &&
+            prefs.getBoolean("enabled", controller.penMode)
     }
 
     private fun message(text: String) = Toast.makeText(activity, text, Toast.LENGTH_LONG).show()
@@ -55,6 +56,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
                 controller.clear()
                 prefs.edit().putBoolean("pen_mode", value).apply()
                 enabled.isEnabled = value || controller.pattern != null
+                if (value) enabled.isChecked = true
                 if (!enabled.isEnabled) enabled.isChecked = false
             }
         }
@@ -120,7 +122,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
         })
         panel.addView(TextView(activity).apply {
             setTextColor(Color.LTGRAY)
-            text = "Para a STABILO das fotos, ative o reconhecimento acima: a câmera procura o corpo laranja e a tampa azul, estima a direção 3D pela mão e pelo comprimento aproximado de 16 cm. Mantenha corpo e tampa visíveis. Para outro objeto, cadastre uma marca abaixo. A direção em profundidade é estimada, não medida."
+            text = "Com as duas opções acima marcadas, mostre à câmera a mão, o corpo laranja e a tampa azul da caneta. O reconhecimento agora separa a caneta de outros objetos alaranjados. Para outro objeto, cadastre uma marca abaixo. A direção em profundidade é estimada, não medida."
         })
     }
 
