@@ -65,12 +65,14 @@ class PcLink(
         val pinch = BooleanArray(2)
         val ratio = FloatArray(2)
         val grip = BooleanArray(2)
+        val palmAim = FloatArray(3)
         var seq = 0
         var fx = 0f
         var fy = 1f
         var socket: DatagramSocket? = null
         var addr: InetAddress? = null
         val hbuf = ByteBuffer.allocate(60).order(ByteOrder.LITTLE_ENDIAN)
+        val hp = FloatArray(3)
         var hseq = 0
         var lastCount = -1L
         var winStart = System.nanoTime(); var winCount = 0
@@ -90,7 +92,7 @@ class PcLink(
                 if (!running) break
                 if (sendHead) {
                     val qw: Float; val qx: Float; val qy: Float; val qz: Float
-                    val hp = FloatArray(3); val posOk: Boolean; val stampUs: Long; val rc: Int
+                    val posOk: Boolean; val stampUs: Long; val rc: Int
                     synchronized(st.poseLock) {
                         qw = st.headQ[0]; qx = st.headQ[1]; qy = st.headQ[2]; qz = st.headQ[3]
                         hp[0] = st.headPosSv[0]; hp[1] = st.headPosSv[1]; hp[2] = st.headPosSv[2]
@@ -170,13 +172,16 @@ class PcLink(
                         px = dx * rx + dy * ry
                         py = dz
                         pz = -(dx * fx + dy * fy)
-                        var vx = p[27] - p[0]; var vy = p[28] - p[1]; var vz = p[29] - p[2]     // pulso -> base do dedo médio
-                        if (mark != null) { vx = dx; vy = dy; vz = dz }
-                        val vn = sqrt(vx * vx + vy * vy + vz * vz).coerceAtLeast(1e-5f)
-                        vx /= vn; vy /= vn; vz /= vn
-                        ax = vx * rx + vy * ry
-                        ay = vz
-                        az = -(vx * fx + vy * fy)
+                        val hasPalmAim = mark == null && HandControllerAim.direction(p, palmAim)
+                        if (mark != null || hasPalmAim || dx * dx + dy * dy + dz * dz > 1e-4f) {
+                            val vx = if (hasPalmAim) palmAim[0] else dx
+                            val vy = if (hasPalmAim) palmAim[1] else dy
+                            val vz = if (hasPalmAim) palmAim[2] else dz
+                            val vn = sqrt(vx * vx + vy * vy + vz * vz).coerceAtLeast(1e-5f)
+                            ax = (vx / vn) * rx + (vy / vn) * ry
+                            ay = vz / vn
+                            az = -((vx / vn) * fx + (vy / vn) * fy)
+                        }
                     }
                     val curls = if (valid[i]) FingerCurls.pack(pts[i]) else 0
                     buf.put(sf.toByte())

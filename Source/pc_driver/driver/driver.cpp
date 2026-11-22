@@ -1452,7 +1452,8 @@ void Provider::Loop() {
         double prevPos[3] = {};
         bool   havePrev = false, prevReset = false, dirty = false;
         float  hp[3] = {};         // posicao da mao rastreada (filtrada), referencial do corpo
-        bool   hpInit = false, prevPinch = false;
+        bool   hpInit = false, haInit = false, prevPinch = false;
+        double haYaw = 0, haPitch = 0;
         float  trig = 0, grip = 0;
         clock::time_point lastWrite = clock::now();
     } hs[HAND_COUNT];
@@ -2120,9 +2121,22 @@ void Provider::Loop() {
                 if (!espCtl && handAimOk[h]) {
                     const double yawLeft = -std::atan2((double)handAim[h][0], -(double)handAim[h][2]);
                     const double pitchUp = std::asin(std::max(-1.0, std::min(1.0, (double)handAim[h][1])));
-                    ps.rot = QuatMul(QuatAxisY(rotYaw + yawLeft), QuatAxisX(pitchUp));
+                    // A direcao da camera e relativa a cabeca, tal como a posicao acima.
+                    // Suaviza so a mao: movimento da cabeca permanece imediato.
+                    if (!st.haInit) { st.haYaw = yawLeft; st.haPitch = pitchUp; st.haInit = true; }
+                    else {
+                        const double dyaw = std::remainder(yawLeft - st.haYaw, 6.283185307179586);
+                        const double dpitch = pitchUp - st.haPitch;
+                        const double error = std::sqrt(dyaw * dyaw + dpitch * dpitch);
+                        const double tau = 0.035 / (1.0 + error * 4.0);
+                        const double alpha = 1.0 - std::exp(-(double)dt / tau);
+                        st.haYaw += dyaw * alpha;
+                        st.haPitch += dpitch * alpha;
+                    }
+                    ps.rot = QuatMul(QuatAxisY(headYaw + st.haYaw), QuatAxisX(st.haPitch));
                 }
-            } else st.hpInit = false;
+                else st.haInit = false;
+            } else { st.hpInit = false; st.haInit = false; }
             // vecVelocity = 0 DE PROPOSITO: o SteamVR extrapola a pose ate o instante da tela com essa velocidade. Calculada como (pos - posAnterior)/dt com
             // dt de ~2 ms (que oscila 1,5-4 ms), ela vira ruido de varios m/s e a extrapolacao faz o laser/controle dar "pulinhos" (pior no Arm Model,
             // onde a posicao depende da orientacao). A previsao ja e feita aqui, na orientacao.
