@@ -20,6 +20,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
 
     init {
         controller.pattern = ObjectAppearance.decode(prefs.getString("sample", null))
+        controller.alternatePattern = ObjectAppearance.decode(prefs.getString("sample_second_view", null))
         controller.enabled = controller.pattern != null && prefs.getBoolean("enabled", false)
     }
 
@@ -35,7 +36,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
     fun addTo(panel: LinearLayout, startCamera: () -> Unit) {
         val enabled = CheckBox(activity).apply {
             setTextColor(Color.WHITE)
-            text = "Mirar com o objeto cadastrado"
+            text = "Usar a caneta/objeto cadastrado como um controle"
             isChecked = controller.enabled
             isEnabled = controller.pattern != null
             setOnCheckedChangeListener { _, value ->
@@ -46,7 +47,7 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
         panel.addView(enabled)
         panel.addView(Button(activity).apply {
             isAllCaps = false
-            text = "Fotografar e cadastrar objeto"
+            text = "Cadastrar a ponta da caneta/objeto"
             setOnClickListener {
                 val token = ++session
                 val request: (CameraPhoto) -> Unit = { photo ->
@@ -54,11 +55,12 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
                         if (session == token && !activity.isFinishing && !activity.isDestroyed) {
                             showPhoto(photo) { appearance ->
                                 controller.pattern = appearance
+                                controller.alternatePattern = null
                                 enabled.isEnabled = true
                                 enabled.isChecked = true
                                 controller.enabled = true
-                                prefs.edit().putString("sample", appearance.encode()).putBoolean("enabled", true).apply()
-                                message("Objeto cadastrado. Mova-o para mirar e use a pinça para selecionar.")
+                                prefs.edit().putString("sample", appearance.encode()).remove("sample_second_view").putBoolean("enabled", true).apply()
+                                message("Ponta cadastrada. Ela controla a mão que a segura; pinça seleciona.")
                             }
                         }
                     }
@@ -73,9 +75,35 @@ class ObjectCalibrationUi(private val activity: Activity, private val controller
                 }, 20000)
             }
         })
+        panel.addView(Button(activity).apply {
+            isAllCaps = false
+            text = "Adicionar outra vista da caneta"
+            setOnClickListener {
+                if (controller.pattern == null) {
+                    message("Cadastre primeiro a ponta da caneta.")
+                    return@setOnClickListener
+                }
+                val token = ++session
+                val request: (CameraPhoto) -> Unit = { photo ->
+                    main.post {
+                        if (session == token && !activity.isFinishing && !activity.isDestroyed) {
+                            showPhoto(photo) { appearance ->
+                                controller.alternatePattern = appearance
+                                prefs.edit().putString("sample_second_view", appearance.encode()).apply()
+                                message("Segunda vista cadastrada. A mesma ponta pode ser reconhecida em outro ângulo.")
+                            }
+                        }
+                    }
+                }
+                message("Gire a caneta e fotografe a mesma ponta por outro ângulo. Toque nela na imagem.")
+                controller.capture.set(request)
+                startCamera()
+                main.postDelayed({ if (session == token) controller.capture.compareAndSet(request, null) }, 20000)
+            }
+        })
         panel.addView(TextView(activity).apply {
             setTextColor(Color.LTGRAY)
-            text = "Cadastre uma ponta, borda ou marca visível perto dos dedos. Ela define a posição do controle e a mira. A profundidade é estimada pela mão. Para trocar de objeto, fotografe novamente."
+            text = "Cadastre uma ponta ou marca visível perto dos dedos. A segunda vista ajuda quando a caneta gira. A câmera estima a distância pela mão; isto registra detalhes visuais, não gera uma malha 3D da caneta."
         })
     }
 

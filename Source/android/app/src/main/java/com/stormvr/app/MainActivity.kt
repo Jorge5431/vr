@@ -98,7 +98,15 @@ class MainActivity : Activity() {
             Ui.tile(c, "⚔️", "StormSaber", "jogo de sabres") { startActivity(Intent(c, StormSaberActivity::class.java)) }))
         root.addView(Ui.row(c,
             Ui.tile(c, "🕹", "Modo controle", "este celular vira controle") { startActivity(Intent(c, ControllerActivity::class.java)) },
-            Ui.tile(c, "📺", "Moonlight", "espelhar o PC") { startActivity(Intent(c, com.stormvr.app.moonlight.MoonlightActivity::class.java)) }))
+            Ui.tile(c, "📺", "Moonlight", "parear PC / tela comum") { startActivity(Intent(c, com.stormvr.app.moonlight.MoonlightActivity::class.java)) }))
+        root.addView(Ui.button(c, "🥽 SteamVR + vídeo + mãos", primary = true) {
+            val host = etHost.text.toString().trim()
+            if (host.isEmpty()) { Toast.makeText(c, "Informe o IP do PC.", Toast.LENGTH_SHORT).show(); return@button }
+            prefs.host = host
+            if (PoseService.State.running) stopService3dof()
+            startActivity(Intent(c, com.stormvr.app.vrroom.VrRoomActivity::class.java)
+                .putExtra(com.stormvr.app.vrroom.VrRoomActivity.EXTRA_TRACK_ONLY, true))
+        })
         root.addView(Ui.row(c,
             Ui.tile(c, "📱", "Aplicativos", "apps do Android na TV") { startActivity(Intent(c, com.stormvr.app.applauncher.AppLauncherActivity::class.java)) },
             Ui.tile(c, "🎮", "Gamepad", "mapear botões") { startActivity(Intent(c, GamepadMapActivity::class.java)) }))

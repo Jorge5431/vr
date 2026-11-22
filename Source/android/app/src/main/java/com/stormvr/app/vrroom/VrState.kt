@@ -57,6 +57,7 @@ class VrState {
     @Volatile var arState = 0       // 0 desligado, 1 procurando, 2 rastreando
     @Volatile var handsOn = true     // rastreamento de mãos
     @Volatile var handLasers = true  // lasers saindo das mãos
+    @Volatile var showLaserBeams = true // só visibilidade das linhas; não desliga a interação nem o envio ao PC
     @Volatile var handState = 0      // 0 off, 1 carregando modelo, 2 procurando mãos, 3 rastreando
     @Volatile var passthrough = false // modo câmera: sem sala, mostra a imagem da câmera
     @Volatile var handAim = 0         // 0 = olho -> pinça (alinhada), 1 = braço (amplificada)

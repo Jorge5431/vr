@@ -63,6 +63,17 @@ class ObjectAppearanceTest {
         val hit=model.find(bright,w,h,listOf(hand))!!
         assertEquals(52f,hit.x,1.1f);assertEquals(37f,hit.y,1.1f)
     }
+    @Test fun secondViewCanRecoverARegisteredPenTip() {
+        val frame = photo(48, 40)
+        val controller = ObjectController()
+        controller.enabled = true
+        controller.pattern = ObjectAppearance(IntArray(25) { 0xff000000.toInt() })
+        controller.alternatePattern = ObjectAppearance.register(frame, 48, 40)
+        val pose = FloatArray(16) { if (it % 5 == 0) 1f else 0f }
+        controller.update(frame.rgb, w, h, frame.hands, 100f, 100f, 48f, 40f, pose, 1_000_000L)
+        controller.update(frame.rgb, w, h, frame.hands, 100f, 100f, 48f, 40f, pose, 21_000_000L)
+        assertNotNull(controller.live(21_000_000L))
+    }
     @Test fun followsHandMotionUsingPreviousMatch() {
         val frame=photo(48,40)
         val model=ObjectAppearance.register(frame,48,40)!!

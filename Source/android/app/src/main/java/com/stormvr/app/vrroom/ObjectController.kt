@@ -9,6 +9,7 @@ data class ObjectPose(val slot: Int, val x: Float, val y: Float, val z: Float, v
 class ObjectController {
     @Volatile var enabled = false
     @Volatile var pattern: ObjectAppearance? = null
+    @Volatile var alternatePattern: ObjectAppearance? = null
     val capture = AtomicReference<((CameraPhoto) -> Unit)?>(null)
     @Volatile private var locked: ObjectPose? = null
     private var previous: ObjectPose? = null
@@ -17,6 +18,7 @@ class ObjectController {
     private var imageWidth = 0
     private var imageHeight = 0
     private var registered: ObjectAppearance? = null
+    private var registeredAlternate: ObjectAppearance? = null
     @Volatile var status = "Cadastre uma marca com contraste"
     @Volatile var processingMs = 0L
 
@@ -30,11 +32,12 @@ class ObjectController {
         if (hands.isNotEmpty()) capture.getAndSet(null)?.invoke(CameraPhoto(rgb.copyOf(), w, h, hands))
         if (!enabled) { clear(); return }
         val model = pattern ?: run { clear(); return }
-        if (imageWidth != w || imageHeight != h || registered !== model) {
-            clear(); imageWidth=w; imageHeight=h; registered=model
+        val alternate = alternatePattern
+        if (imageWidth != w || imageHeight != h || registered !== model || registeredAlternate !== alternate) {
+            clear(); imageWidth=w; imageHeight=h; registered=model; registeredAlternate=alternate
         }
         val begin=System.nanoTime()
-        val found = model.find(rgb, w, h, hands, match)
+        val found = model.find(rgb, w, h, hands, match) ?: alternate?.find(rgb, w, h, hands, match)
         processingMs=(System.nanoTime()-begin)/1_000_000L
         if (found == null) {
             previous = null; misses++

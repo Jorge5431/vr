@@ -184,6 +184,7 @@ class VrRoomActivity : Activity() {
         state.pcSendPos = p.getBoolean("pcpos", true)
         state.pcSendPinch = p.getBoolean("pcpinch", true)
         state.heldObjectControl = p.getBoolean("held_object_control", false)
+        state.showLaserBeams = p.getBoolean("show_laser_beams", true)
         ControllerHub.swapHands = p.getBoolean("swap", false)
         hubInvYaw = p.getBoolean("iy", false)
         hubInvPitch = p.getBoolean("ip", false)
@@ -220,6 +221,7 @@ class VrRoomActivity : Activity() {
             .putBoolean("pcpos", state.pcSendPos)
             .putBoolean("pcpinch", state.pcSendPinch)
             .putBoolean("held_object_control", state.heldObjectControl)
+            .putBoolean("show_laser_beams", state.showLaserBeams)
             .putBoolean("swap", ControllerHub.swapHands)
             .putBoolean("iy", hubInvYaw)
             .putBoolean("fingerctl", fingerCtl)
@@ -273,6 +275,16 @@ class VrRoomActivity : Activity() {
         }
 
         loadPrefs()
+        if (intent.getBooleanExtra(EXTRA_TRACK_ONLY, false)) {
+            screenSource = VrMoonlightSource(this)
+            trackSession = true
+            state.pcMode = true
+            state.pcSendPos = true
+            state.pcSendPinch = true
+            state.handsOn = true
+            state.twoHands = true
+            state.handSource = 0
+        }
         renderer = VrRenderer(this, state, ui) { s -> runOnUiThread { onTexSurface(s) } }
         glView = GLSurfaceView(this).apply {
             setOnTouchListener { _, ev -> if (vrMode && state.fullscreen) { forwardFullscreenTouch(ev); true } else if (vrMode && fingerCtl) { fingerTouch(ev); true } else false }
@@ -296,6 +308,7 @@ class VrRoomActivity : Activity() {
                                else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE   // travada: sem rotação automática
         state.rotation = fixedRotation()
         state.sixDof = com.stormvr.app.Prefs(this).sixDof          // 3DoF/6DoF: uma escolha só, na tela inicial
+        if (trackSession) state.sixDof = true
         state.predMs = com.stormvr.app.Prefs(this).predictionMs.toFloat()
         state.headHz = com.stormvr.app.Prefs(this).rateHz.coerceIn(50, 120)
         state.pinchSmooth = getSharedPreferences("vrroom", Context.MODE_PRIVATE).getFloat("pinchsmooth", 0.5f).coerceIn(0f, 1f)
@@ -303,9 +316,6 @@ class VrRoomActivity : Activity() {
         if (intent.getBooleanExtra(EXTRA_TRACK_ONLY, false)) {
             // 6DoF: mesmo motor da Sala 3D (6DoF, mãos, envio ao SteamVR), mas com a telona em TELA CHEIA mostrando o Moonlight
             // (em vez da antiga tela preta). A sala 3D não é desenhada (só a textura da tela).
-            trackSession = true
-            tvApp = TvApp.MOONLIGHT
-            state.pcMode = true
             glView.post { enterVr(true) }
         }
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -341,6 +351,7 @@ class VrRoomActivity : Activity() {
     }
 
     override fun onPause() {
+        if (trackSession) screenSource?.detach()
         tvArcade?.evaluateJavascript("window.pauseArcade?.()", null)
         Choreographer.getInstance().removeFrameCallback(frameCb)
         stopAr()
@@ -351,6 +362,7 @@ class VrRoomActivity : Activity() {
     }
 
     override fun onDestroy() {
+        screenSource?.detach()
         stopPcLink()
         stopHub()
         stopAr()
@@ -430,10 +442,16 @@ class VrRoomActivity : Activity() {
             setOnCheckedChangeListener { _, c -> state.handsOn = c }
         }
         val hlaserBox = CheckBox(this).apply {
-            text = "Ponteiro das mãos (bolinha na pinça)"
-            isChecked = true
+            text = "Interagir com as mãos (pinça e cursor)"
+            isChecked = state.handLasers
             setTextColor(Color.WHITE)
             setOnCheckedChangeListener { _, c -> state.handLasers = c }
+        }
+        val beamBox = CheckBox(this).apply {
+            text = "Mostrar linhas vermelha e azul dos controles"
+            isChecked = state.showLaserBeams
+            setTextColor(Color.WHITE)
+            setOnCheckedChangeListener { _, visible -> state.showLaserBeams = visible; savePrefs() }
         }
         val twoBox = CheckBox(this).apply {
             text = "Rastrear as duas mãos (mais pesado; desmarcado = 1 mão, mais fluido)"
@@ -695,6 +713,7 @@ class VrRoomActivity : Activity() {
             addView(fingerBox)
             addView(com.stormvr.app.ExtrasUi.build(this@VrRoomActivity))
             addView(hlaserBox)
+            addView(beamBox)
             addView(twoBox)
             addView(TextView(this@VrRoomActivity).apply {
                 text = "3DoF/6DoF e controles Bluetooth: escolha na tela inicial do StormVR."
@@ -1032,6 +1051,7 @@ class VrRoomActivity : Activity() {
     }
 
     private fun exitVr() {
+        if (trackSession) screenSource?.detach()
         objectUi.cancelCapture()
         vrMode = false
         extras?.stop()
