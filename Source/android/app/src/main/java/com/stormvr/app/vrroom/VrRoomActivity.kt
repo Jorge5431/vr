@@ -1550,6 +1550,18 @@ class VrRoomActivity : Activity() {
         }
         val l1 = "GL ${state.glFps} fps  |  ARCore: $ar  |  Mãos: $hs"
         var l2 = tracker?.info() ?: "tracker não iniciado"
+        val gestures = synchronized(state.handLock) {
+            (0..1).joinToString(" | ") { hand ->
+                val label = if (hand == 0) "E" else "D"
+                "$label: " + when {
+                    !state.handValid[hand] -> "sem mão"
+                    state.handPinch[hand] -> "PINÇA ✓"
+                    state.handGrip[hand] -> "PEGADA ✓"
+                    else -> "aberta"
+                }
+            }
+        }
+        l2 += " | $gestures"
         if (state.objectController.enabled) {
             val slot = state.objectController.live()?.slot
             l2 += when (slot) { 0 -> " | objeto: esquerda"; 1 -> " | objeto: direita"; else -> " | procurando objeto" }
@@ -1819,7 +1831,8 @@ class VrRoomActivity : Activity() {
                 aimFilter[i].reset()
                 dragOn[i] = false
                 offS[i] = 0f; offZ[i] = 0f
-                handPressed = has && pinch
+                // Sem interseção válida não há alvo a selecionar. Soltar evita clique preso.
+                handPressed = false
             }
             s.pressed[i] = trig || handPressed
         }

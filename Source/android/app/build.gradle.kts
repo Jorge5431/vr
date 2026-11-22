@@ -12,8 +12,8 @@ android {
         ndk { abiFilters += "arm64-v8a" }
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "2.1.2"
+        versionCode = 10
+        versionName = "2.1.3"
     }
     buildTypes {
         release { isMinifyEnabled = false }
