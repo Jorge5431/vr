@@ -42,36 +42,40 @@ public class MoonlightSession implements NvConnectionListener, PerfOverlayListen
     public void start(String host, NvApp app, MoonlightStore st, Surface surface) {
         this.host = host;
         com.limelight.binding.video.MediaCodecHelper.initialize(act, "");   // obrigatorio antes do MediaCodecDecoderRenderer (o Artemis chama isso em Game.onCreate)
-        // o Artemis exige isto ANTES de criar o decodificador (detecta codecs/quirks do aparelho); sem isso: "MediaCodecHelper must be initialized before use"
-        com.limelight.binding.video.MediaCodecHelper.initialize(act, "");
+        if (!surface.isValid()) throw new IllegalStateException("A tela de vídeo ainda não está pronta.");
+        final boolean compatible = st.compatibility();
+        final int width = compatible ? 1280 : st.width();
+        final int height = compatible ? 720 : st.height();
+        final int fps = compatible ? 30 : st.fps();
+        final int bitrate = compatible ? 8000 : st.bitrateKbps();
         PreferenceConfiguration prefs = PreferenceConfiguration.readPreferences(act);
-        prefs.width = st.width(); prefs.height = st.height(); prefs.fps = st.fps();
-        prefs.bitrate = st.bitrateKbps(); prefs.enableHdr = false; prefs.enablePerfOverlay = false;
+        prefs.width = width; prefs.height = height; prefs.fps = fps;
+        prefs.bitrate = bitrate; prefs.enableHdr = false; prefs.enablePerfOverlay = false;
 
         decoder = new MediaCodecDecoderRenderer(act, prefs, this, 0, false, false, false, "", this);
         decoder.setRenderTarget(surface);
         audio = new AndroidAudioRenderer(act, false);
 
         int formats = MoonBridge.VIDEO_FORMAT_H264;
-        if (decoder.isHevcSupported()) formats |= MoonBridge.VIDEO_FORMAT_H265;
-        if (decoder.isAv1Supported()) formats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
+        if (!compatible && decoder.isHevcSupported()) formats |= MoonBridge.VIDEO_FORMAT_H265;
+        if (!compatible && decoder.isAv1Supported()) formats |= MoonBridge.VIDEO_FORMAT_AV1_MAIN8;
 
         StreamConfiguration config = new StreamConfiguration.Builder()
-                .setResolution(st.width(), st.height())
-                .setLaunchRefreshRate(st.fps())
-                .setRefreshRate(st.fps())
+                .setResolution(width, height)
+                .setLaunchRefreshRate(fps)
+                .setRefreshRate(fps)
                 .setVirtualDisplay(false)
                 .setResolutionScaleFactor(100)
                 .setApp(app)
                 .setEnableUltraLowLatency(false)
-                .setBitrate(st.bitrateKbps())
+                .setBitrate(bitrate)
                 .setEnableSops(true)
                 .enableLocalAudioPlayback(st.localAudio())
                 .setMaxPacketSize(1392)
                 .setRemoteConfiguration(StreamConfiguration.STREAM_CFG_AUTO)
                 .setSupportedVideoFormats(formats)
                 .setAttachedGamepadMask(0)
-                .setClientRefreshRateX100(st.fps() * 100)
+                .setClientRefreshRateX100(fps * 100)
                 .setAudioConfiguration(MoonBridge.AUDIO_CONFIGURATION_STEREO)
                 .setColorSpace(decoder.getPreferredColorSpace())
                 .setColorRange(decoder.getPreferredColorRange())
@@ -83,18 +87,27 @@ public class MoonlightSession implements NvConnectionListener, PerfOverlayListen
         conn.start(audio, decoder, this);
     }
 
-    // Watchdog de imagem parada: com a tela do PC sem mudar (headset parado) o Sunshine para de mandar quadros e o celular fica preto/vermelho
-    // ate algo mudar (por isso "clicar na janela" resolvia). Pedimos um quadro novo a cada 1,2 s (so enquanto conectado).
+    // Recovery is driven by decoded frames, never by an unconditional IDR storm.
     private volatile boolean keepRun = false;
     private void startKeepAlive() {
         if (keepRun) return;
         keepRun = true;
+        final MediaCodecDecoderRenderer renderer = decoder;
         new Thread(() -> {
-            while (keepRun) {
-                try { Thread.sleep(1200); } catch (InterruptedException e) { break; }
-                try { com.limelight.nvstream.jni.MoonBridge.requestIdrFrame(); } catch (Throwable t) { /* build antigo sem a funcao nativa */ }
+            VideoHealth health = new VideoHealth(android.os.SystemClock.elapsedRealtime());
+            while (keepRun && !stopped) {
+                try { Thread.sleep(500); } catch (InterruptedException e) { break; }
+                if (!keepRun || stopped) break;
+                int events = health.update(android.os.SystemClock.elapsedRealtime(), renderer.getStormRenderedFrames());
+                if ((events & VideoHealth.VIDEO_READY) != 0) ev.onStarted();
+                if ((events & VideoHealth.REQUEST_KEYFRAME) != 0) {
+                    try { MoonBridge.requestIdrFrame(); } catch (Throwable ignored) { }
+                }
+                if ((events & VideoHealth.NO_VIDEO) != 0) {
+                    ev.onStatus("Conectado, mas sem quadros de vídeo. Use o modo compatível e confira a captura/monitor no Apollo e a rede privada do Windows.");
+                }
             }
-        }, "StormVR-VideoKeepAlive").start();
+        }, "StormVR-VideoWatchdog").start();
     }
 
     public void stop() {
@@ -124,9 +137,15 @@ public class MoonlightSession implements NvConnectionListener, PerfOverlayListen
     // ---- NvConnectionListener
     @Override public void stageStarting(String stage) { ev.onStatus("Iniciando: " + stage); }
     @Override public void stageComplete(String stage) { }
-    @Override public boolean stageFailed(String stage, int portFlags, int errorCode) { ev.onStatus("Falha em " + stage + " (código " + errorCode + ")"); return false; }
-    @Override public void connectionStarted() { startKeepAlive(); ev.onStarted(); }
-    @Override public void connectionTerminated(int errorCode) { if (!stopped) ev.onEnded(errorCode, lastMessage); }
+    @Override public boolean stageFailed(String stage, int portFlags, int errorCode) {
+        keepRun = false;
+        String reason = errorCode == 403 ? "Apollo recusou iniciar o aplicativo. Em Clientes, habilite Iniciar aplicativos para este celular; somente Ver transmissão não basta." : "Verifique o Apollo, o IP do PC e a rede. Ative o modo compatível para testar o vídeo.";
+        lastMessage = "Falha em " + stage + " (" + errorCode + "). " + reason;
+        android.util.Log.e("StormVR-Stream", lastMessage + " ports=" + portFlags);
+        ev.onEnded(errorCode, lastMessage); return false;
+    }
+    @Override public void connectionStarted() { ev.onStatus("Conectado ao PC. Aguardando o primeiro quadro de vídeo…"); startKeepAlive(); }
+    @Override public void connectionTerminated(int errorCode) { keepRun = false; if (!stopped) ev.onEnded(errorCode, lastMessage); }
     @Override public void connectionStatusUpdate(int connectionStatus) { }
     @Override public void displayMessage(String message) { lastMessage = message == null ? "" : message; ev.onStatus(lastMessage); }
     @Override public void displayTransientMessage(String message) { ev.onStatus(message); }

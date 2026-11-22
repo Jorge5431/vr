@@ -51,4 +51,24 @@ class ObjectAppearanceTest {
         assertEquals(-.45f, controller.live(21_000_000L)!!.z, .001f)
         assertNull(controller.live(250_000_000L))
     }
+    @Test fun findsMarkAfterExposureChange() {
+        val frame=photo(48,40)
+        val model=ObjectAppearance.register(frame,48,40)!!
+        val moved=photo(52,37)
+        val bright=moved.rgb.map { c ->
+            var result=0xff000000.toInt()
+            for (shift in intArrayOf(0,8,16)) result=result or ((((c ushr shift) and 255)+25).coerceAtMost(255) shl shift)
+            result
+        }.toIntArray()
+        val hit=model.find(bright,w,h,listOf(hand))!!
+        assertEquals(52f,hit.x,1.1f);assertEquals(37f,hit.y,1.1f)
+    }
+    @Test fun followsHandMotionUsingPreviousMatch() {
+        val frame=photo(48,40)
+        val model=ObjectAppearance.register(frame,48,40)!!
+        val first=model.find(frame.rgb,w,h,listOf(hand))!!
+        val moved=photo(56,42)
+        val hit=model.find(moved.rgb,w,h,listOf(hand.copy(x=48f,y=42f)),first)!!
+        assertEquals(56f,hit.x,1.1f);assertEquals(42f,hit.y,1.1f)
+    }
 }

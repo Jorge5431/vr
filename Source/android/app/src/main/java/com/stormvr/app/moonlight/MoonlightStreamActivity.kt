@@ -54,7 +54,7 @@ class MoonlightStreamActivity : Activity(), SurfaceHolder.Callback, MoonlightSes
             val cw = r - l; val ch = b - t
             if (cw > 0 && ch > 0) {
                 var w = cw; var h = ch
-                if (!st0.fill()) { val ar = st0.width().toFloat() / st0.height(); if (cw.toFloat() / ch > ar) w = (ch * ar).toInt() else h = (cw / ar).toInt() }
+                if (!st0.fill()) { val ar = if (st0.compatibility()) 1280f / 720f else st0.width().toFloat() / st0.height(); if (cw.toFloat() / ch > ar) w = (ch * ar).toInt() else h = (cw / ar).toInt() }
                 val lp = surface.layoutParams as FrameLayout.LayoutParams
                 if (lp.width != w || lp.height != h) { lp.width = w; lp.height = h; lp.gravity = Gravity.CENTER; surface.layoutParams = lp }
             }
@@ -76,12 +76,13 @@ class MoonlightStreamActivity : Activity(), SurfaceHolder.Callback, MoonlightSes
 
     private fun showMenu() {
         val items = arrayOf("■ Encerrar sessão (fecha o app no PC)", "⏏ Só sair (o PC continua rodando)", mouseNames[store.mouseMode().coerceIn(0, 2)] + " — trocar",
-            "Gamepad → PC: " + (if (pad.enabled) "LIGADO" else "desligado") + "  (Start 2x alterna)", "Mapear gamepad…")
+            "Gamepad → PC: " + (if (pad.enabled) "LIGADO" else "desligado") + "  (Start 2x alterna)", "Mapear gamepad…", "Reconectar em modo compatível (720p / H.264)")
         AlertDialog.Builder(this).setTitle("Moonlight").setItems(items) { _, i ->
             when (i) {
                 0 -> endSession()
                 1 -> finish()
                 2 -> { store.setMouseMode((store.mouseMode() + 1) % 3); Toast.makeText(this, mouseNames[store.mouseMode()], Toast.LENGTH_SHORT).show() }
+                5 -> { store.setCompatibility(true); session?.stop(); session = null; recreate() }
                 4 -> startActivity(android.content.Intent(this, com.stormvr.app.GamepadMapActivity::class.java))
             }
         }.setNegativeButton("Fechar", null).show()
@@ -102,6 +103,7 @@ class MoonlightStreamActivity : Activity(), SurfaceHolder.Callback, MoonlightSes
     override fun surfaceCreated(holder: SurfaceHolder) {
         if (started) return
         started = true
+        ended = false
         val ip = intent.getStringExtra("ip") ?: return finish()
         val app = NvApp(intent.getStringExtra("appName") ?: "Desktop", intent.getStringExtra("appUuid") ?: "", intent.getIntExtra("appId", 0), false)
         val st = store
@@ -110,7 +112,7 @@ class MoonlightStreamActivity : Activity(), SurfaceHolder.Callback, MoonlightSes
         catch (e: Throwable) { onEnded(-1, "Falha ao iniciar: ${e.message ?: e.javaClass.simpleName}") }
     }
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
-    override fun surfaceDestroyed(holder: SurfaceHolder) {}
+    override fun surfaceDestroyed(holder: SurfaceHolder) { session?.stop(); session = null; started = false }
 
     override fun onStatus(text: String) { runOnUiThread { if (!ended) { msg.visibility = View.VISIBLE; msg.text = text } } }
     override fun onStarted() { runOnUiThread { msg.visibility = View.GONE } }

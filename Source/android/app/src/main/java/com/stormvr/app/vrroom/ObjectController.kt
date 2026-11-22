@@ -12,19 +12,38 @@ class ObjectController {
     val capture = AtomicReference<((CameraPhoto) -> Unit)?>(null)
     @Volatile private var locked: ObjectPose? = null
     private var previous: ObjectPose? = null
+    private var match: ObjectMatch? = null
+    private var misses = 0
+    private var imageWidth = 0
+    private var imageHeight = 0
+    private var registered: ObjectAppearance? = null
+    @Volatile var status = "Cadastre uma marca com contraste"
+    @Volatile var processingMs = 0L
 
     fun live(now: Long = System.nanoTime()): ObjectPose? =
-        if (enabled) locked?.takeIf { now - it.at in 0..180_000_000L } else null
+        if (enabled) locked?.takeIf { now - it.at in 0..120_000_000L } else null
 
-    fun clear() { locked = null; previous = null }
+    fun clear() { locked = null; previous = null; match = null; misses = 0 }
 
     fun update(rgb: IntArray, w: Int, h: Int, hands: List<ObjectHand>, fx: Float, fy: Float,
                cx: Float, cy: Float, pose: FloatArray, now: Long) {
         if (hands.isNotEmpty()) capture.getAndSet(null)?.invoke(CameraPhoto(rgb.copyOf(), w, h, hands))
         if (!enabled) { clear(); return }
         val model = pattern ?: run { clear(); return }
-        val found = model.find(rgb, w, h, hands)
-        if (found == null) { previous = null; return }
+        if (imageWidth != w || imageHeight != h || registered !== model) {
+            clear(); imageWidth=w; imageHeight=h; registered=model
+        }
+        val begin=System.nanoTime()
+        val found = model.find(rgb, w, h, hands, match)
+        processingMs=(System.nanoTime()-begin)/1_000_000L
+        if (found == null) {
+            previous = null; misses++
+            if (misses >= 3) match=null
+            status=if (hands.isEmpty()) "Mostre a mão que segura o objeto" else "Marca perdida: melhore a luz ou recadastre"
+            return
+        }
+        match=found;misses=0
+        status="Marca localizada • ${processingMs} ms"
         val z = found.hand.depth
         val x = (found.x - cx) / fx * z
         val y = -(found.y - cy) / fy * z
@@ -38,7 +57,9 @@ class ObjectController {
         if (sqrt(dx*dx + dy*dy + dz*dz) > .18f) return
         val old = live(now)
         if (old == null || old.slot != raw.slot) { locked = raw; return }
-        val alpha = (0.42f + 3f * sqrt(dx*dx + dy*dy + dz*dz)).coerceAtMost(.92f)
+        val dt=((now-old.at)/1e9f).coerceIn(.001f,.12f)
+        val speed=sqrt(dx*dx + dy*dy + dz*dz)/dt
+        val alpha=1f-kotlin.math.exp(-dt/(.045f/(1f+speed)))
         locked = ObjectPose(raw.slot, old.x + alpha*(raw.x - old.x), old.y + alpha*(raw.y - old.y),
             old.z + alpha*(raw.z - old.z), now)
     }

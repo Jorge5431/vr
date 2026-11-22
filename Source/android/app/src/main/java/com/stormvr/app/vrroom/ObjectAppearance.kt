@@ -45,47 +45,59 @@ data class ObjectAppearance(val pixels: IntArray) {
 
     fun encode() = pixels.joinToString(",")
 
-    fun find(rgb: IntArray, w: Int, h: Int, hands: List<ObjectHand>): ObjectMatch? {
+    fun find(rgb: IntArray, w: Int, h: Int, hands: List<ObjectHand>, previous: ObjectMatch? = null): ObjectMatch? {
         var best: ObjectMatch? = null
         for (hand in hands) {
-            if (hand.span < 8f) continue
+            if (hand.span < 8f || (previous != null && hand.slot != previous.hand.slot)) continue
             val spacing = spacing(hand.span)
-            val radius = (hand.span * 1.65f).roundToInt()
-            val step = max(1, radius / 16)
-            val border = ceil(3 * spacing).toInt() + 1
-            val x0 = max(border, hand.x.toInt() - radius)
-            val x1 = min(w - border - 1, hand.x.toInt() + radius)
-            val y0 = max(border, hand.y.toInt() - radius)
-            val y1 = min(h - border - 1, hand.y.toInt() + radius)
+            val hint = previous?.takeIf { it.hand.slot == hand.slot }
+            val centerX = hint?.let { it.x + hand.x-it.hand.x } ?: hand.x
+            val centerY = hint?.let { it.y + hand.y-it.hand.y } ?: hand.y
+            val radius = (hand.span * if (hint != null) .65f else 1.65f).roundToInt()
+            val step = max(1, (hand.span * 1.65f / 16f).roundToInt())
+            val border = ceil(4 * spacing).toInt() + 1
+            val x0 = max(border, centerX.toInt() - radius)
+            val x1 = min(w - border - 1, centerX.toInt() + radius)
+            val y0 = max(border, centerY.toInt() - radius)
+            val y1 = min(h - border - 1, centerY.toInt() + radius)
             if (x1 < x0 || y1 < y0) continue
-            val offsets = angles.map { a -> IntArray(GRID * GRID) { i ->
+            val offsets = floatArrayOf(.8f, 1f, 1.25f).flatMap { scale -> angles.map { a -> IntArray(GRID * GRID) { i ->
                 val dx = i % GRID - HALF
                 val dy = i / GRID - HALF
-                ((dx * a[1] + dy * a[0]) * spacing).roundToInt() * w +
-                    ((dx * a[0] - dy * a[1]) * spacing).roundToInt()
-            } }
-            // Score is mean per-channel absolute error over a small rotated patch.
+                ((dx * a[1] + dy * a[0]) * spacing * scale).roundToInt() * w +
+                    ((dx * a[0] - dy * a[1]) * spacing * scale).roundToInt()
+            } } }
+            // Compensate exposure changes without erasing the patch's color structure.
+            val templateMean = pixels.sumOf { ((it and 255) + ((it ushr 8) and 255) + ((it ushr 16) and 255)).toDouble() }.toFloat()/75f
             fun score(x: Int, y: Int, limit: Float): Float {
-                val base = y * w + x
-                var minSum = (limit * 75).toInt()
+                val base = y*w+x
+                var bestSum = limit*75f
                 for (rotation in offsets) {
-                    var sum = 0
-                    for (i in pixels.indices) {
-                        val a = pixels[i]; val b = rgb[base + rotation[i]]
-                        sum += abs((a and 255) - (b and 255)) +
-                            abs(((a ushr 8) and 255) - ((b ushr 8) and 255)) +
-                            abs(((a ushr 16) and 255) - ((b ushr 16) and 255))
-                        if (sum >= minSum) break
+                    var mean=0f; var low=255; var high=0
+                    for (offset in rotation) {
+                        val c=rgb[base+offset]
+                        val value=((c and 255)+((c ushr 8) and 255)+((c ushr 16) and 255))/3
+                        mean+=value;low=min(low,value);high=max(high,value)
                     }
-                    if (sum < minSum) minSum = sum
+                    if (high-low < 16) continue
+                    val shift=(mean/25f-templateMean).coerceIn(-80f,80f)
+                    var sum=0f
+                    for (i in pixels.indices) {
+                        val a=pixels[i];val b=rgb[base+rotation[i]]
+                        sum+=abs((a and 255)-(b and 255)+shift)+
+                            abs(((a ushr 8) and 255)-((b ushr 8) and 255)+shift)+
+                            abs(((a ushr 16) and 255)-((b ushr 16) and 255)+shift)
+                        if (sum >= bestSum) break
+                    }
+                    if(sum<bestSum)bestSum=sum
                 }
-                return minSum / 75f
+                return bestSum/75f
             }
             var candidateX = x0
             var candidateY = y0
             var error = 45f
             for (y in y0..y1 step step) for (x in x0..x1 step step) {
-                val ex = x - hand.x; val ey = y - hand.y
+                val ex = x - centerX; val ey = y - centerY
                 if (ex * ex + ey * ey > radius * radius) continue
                 val value = score(x, y, error)
                 if (value + .02f < error) { error = value; candidateX = x; candidateY = y }
@@ -99,7 +111,7 @@ data class ObjectAppearance(val pixels: IntArray) {
                     if (value + .02f < error) { error = value; candidateX = x; candidateY = y }
                 }
             }
-            if (error <= 28f && (best == null || error < best.error)) {
+            if (error <= 24f && (best == null || error < best.error)) {
                 best = ObjectMatch(hand, candidateX.toFloat(), candidateY.toFloat(), error)
             }
         }

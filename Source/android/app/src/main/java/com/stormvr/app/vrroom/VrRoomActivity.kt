@@ -194,6 +194,7 @@ class VrRoomActivity : Activity() {
         state.dotsScreenH = p.getFloat("dscrh", 153f).coerceIn(80f, 220f)
         if (state.handSource == 1) state.handsOn = true                     // as bolinhas usam o mesmo pipeline de câmera das mãos
         state.imuPos = p.getBoolean("imupos", true)
+        state.gazePinch = p.getBoolean("gazePinch", false)
         state.motionProfile = p.getInt("motionProfile", 1).coerceIn(0, 3)
         state.handVisual = p.getInt("handVisual", 0).coerceIn(0, 2)
         state.handMaxFps = p.getInt("handfps", 30).coerceIn(10, 60)
@@ -227,6 +228,7 @@ class VrRoomActivity : Activity() {
             .putInt("hsrc", state.handSource).putBoolean("dleft", state.dotsLeft)
             .putFloat("dscrw", state.dotsScreenW).putFloat("dscrh", state.dotsScreenH)
             .putBoolean("imupos", state.imuPos)
+            .putBoolean("gazePinch", state.gazePinch)
             .putInt("motionProfile", state.motionProfile)
             .putInt("handVisual", state.handVisual)
             .putInt("handfps", state.handMaxFps)
@@ -656,6 +658,18 @@ class VrRoomActivity : Activity() {
             tgt = pgMaos
             addView(head("Rastreamento"))
             addView(handsBox)
+            addView(Button(this@VrRoomActivity).apply {
+                text = "Recalibrar proporções das mãos"; isAllCaps = false
+                setOnClickListener {
+                    state.handCalibration++
+                    Toast.makeText(this@VrRoomActivity, "Mantenha as mãos abertas e bem iluminadas por 2 segundos.", Toast.LENGTH_LONG).show()
+                }
+            })
+            addView(CheckBox(this@VrRoomActivity).apply {
+                text = "Mirar com a cabeça e selecionar com pinça"; setTextColor(Color.WHITE)
+                isChecked = state.gazePinch
+                setOnCheckedChangeListener { _, checked -> state.gazePinch = checked; savePrefs() }
+            })
             addView(Button(this@VrRoomActivity).apply {
                 val labels = arrayOf("Precisão", "Equilibrado", "Movimento rápido", "Econômico")
                 fun refresh() { text = "Perfil: ${labels[state.motionProfile]}" }
@@ -1539,6 +1553,7 @@ class VrRoomActivity : Activity() {
         if (state.objectController.enabled) {
             val slot = state.objectController.live()?.slot
             l2 += when (slot) { 0 -> " | objeto: esquerda"; 1 -> " | objeto: direita"; else -> " | procurando objeto" }
+            l2 += " | ${state.objectController.status}"
         }
         if (state.heldObjectControl) {
             val score = synchronized(state.handLock) { state.handGripScore.maxOrNull() ?: 0f }
@@ -1624,7 +1639,9 @@ class VrRoomActivity : Activity() {
         var dx: Float
         var dy: Float
         var dz: Float
-        if (s.handAim == 0) {
+        if (s.gazePinch) {
+            dx = s.gaze[0]; dy = s.gaze[1]; dz = s.gaze[2]
+        } else if (s.handAim == 0) {
             dx = px - ex; dy = py - ey; dz = pz - ez
         } else {
             val side = if (i == 0) -1f else 1f

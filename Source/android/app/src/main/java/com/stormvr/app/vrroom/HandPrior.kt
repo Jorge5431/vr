@@ -30,10 +30,10 @@ class HandPrior {
 
     /** [p] = 63 floats (21 pontos). [reliable] = mão aberta e bem detectada (só aí os comprimentos são aprendidos). Altera [p] no lugar. */
     fun enforce(p: FloatArray, reliable: Boolean) {
-        if (reliable) {
+        if (reliable && learned < 30) {
             for (c in chains.indices) for (k in 0 until 4) {
                 val l = dist(p, chains[c][k], chains[c][k + 1])
-                if (l < 0.005f || l > 0.15f) continue
+                if (!l.isFinite() || l < 0.005f || l > 0.15f) continue
                 len[c][k] = if (len[c][k] == 0f) l else len[c][k] + (l - len[c][k]) * 0.05f
             }
             if (learned < 1000) learned++

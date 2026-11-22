@@ -196,7 +196,9 @@ class HandTracker(
     private var lastTsMs = 0L
 
     // estado por mão (0 = esquerda, 1 = direita)
-    private val filters = Array(2) { OneEuro(63, 2.2f, 28f, 1.0f) }
+    private val filters = Array(2) { PalmPoseFilter() }
+    private var calibrationSeen = -1
+    private var scaleSeen = 1f
     private val priors = Array(2) { HandPrior() }        // anatomia: mantém o tamanho dos dedos e limita a dobra (mão fechando)
     private val gripLatches = Array(2) { GripLatch() }
     private val gripScoreOut = FloatArray(2)
@@ -805,6 +807,10 @@ class HandTracker(
             }
         }
 
+        if (calibrationSeen != st.handCalibration || scaleSeen != st.handScale) {
+            calibrationSeen = st.handCalibration; scaleSeen = st.handScale
+            for (h in 0..1) { priors[h].reset(); filters[h].reset() }
+        }
         val seen = BooleanArray(2)
         val objectControl = st.objectController
         if (objectControl.enabled || objectControl.capture.get() != null) {
@@ -827,11 +833,9 @@ class HandTracker(
             if (conf[h] < 10) conf[h]++
             val dtH = (tSec - prevT[h]).coerceAtLeast(1e-3f)
             val profile = st.motionProfile.coerceIn(0, 3)
-            filters[h].minCutoff = floatArrayOf(1.2f, 2.2f, 3.5f, 1.8f)[profile]
-            filters[h].beta = floatArrayOf(12f, 28f, 40f, 20f)[profile]
-            filters[h].apply(d.pts, tSec)
-            priors[h].enforce(d.pts, d.score > 0.6f && d.ratio > 0.55f)          // projeta a pose já filtrada para manter comprimentos ósseos estáveis
-            filters[h].synchronize(d.pts)
+            filters[h].apply(d.pts, tSec, profile)
+            // Handedness score is not joint confidence. Learn only an open, plausible hand.
+            priors[h].enforce(d.pts, d.ratio > 0.8f && HandGripClassifier.score(d.pts) < .25f)
             gripScoreOut[h] = HandGripClassifier.score(d.pts)
             gripLatches[h].update(gripScoreOut[h])
             if (active[h]) {
@@ -877,7 +881,7 @@ class HandTracker(
 
         for (h in 0..1) {
             // mão FECHADA (pinça/punho) some do detector por instantes: segura a pose um pouco mais para o trigger não soltar sozinho
-            val holdNs = if (pinchState[h] || ratioOut[h] < 0.55f || gripLatches[h].isGripping) 450_000_000L else 200_000_000L
+            val holdNs = 140_000_000L // brief detector dropout; never keep a hidden hand pressed for half a second
             if (!seen[h] && active[h] && now - lastSeenNs[h] > holdNs) {
                 active[h] = false
                 conf[h] = 0

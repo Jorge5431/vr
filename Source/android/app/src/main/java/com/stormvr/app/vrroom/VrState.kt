@@ -61,6 +61,8 @@ class VrState {
     @Volatile var passthrough = false // modo câmera: sem sala, mostra a imagem da câmera
     @Volatile var handAim = 0         // 0 = olho -> pinça (alinhada), 1 = braço (amplificada)
     @Volatile var lite = false        // modo leve: menos resolução/detalhes, mais FPS
+    @Volatile var handCalibration = 0
+    @Volatile var gazePinch = false
     @Volatile var motionProfile = 1 // precisão, equilibrado, rápido, econômico
     @Volatile var handVisual = 0 // mão completa, esqueleto, pontos
     @Volatile var twoHands = false    // rastrear 2 mãos (mais pesado) em vez de 1

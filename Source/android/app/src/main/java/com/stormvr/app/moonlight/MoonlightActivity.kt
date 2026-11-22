@@ -57,6 +57,11 @@ class MoonlightActivity : Activity() {
 
         val q = Ui.card(this)
         q.addView(Ui.label(this, "Qualidade da transmissão"))
+        q.addView(android.widget.CheckBox(this).apply {
+            text = "Modo compatível: H.264, 720p, 30 fps, 8 Mbps"; setTextColor(Color.WHITE)
+            isChecked = st.compatibility()
+            setOnCheckedChangeListener { _, checked -> st.setCompatibility(checked) }
+        })
         val real = android.util.DisplayMetrics()
         @Suppress("DEPRECATION") windowManager.defaultDisplay.getRealMetrics(real)
         val phone = maxOf(real.widthPixels, real.heightPixels).let { it - it % 2 } to minOf(real.widthPixels, real.heightPixels).let { it - it % 2 }
@@ -150,6 +155,7 @@ class MoonlightActivity : Activity() {
             c.addView(TextView(this).apply { text = ip; textSize = 18f; setTextColor(Color.WHITE) })
             c.addView(Ui.label(this, if (st.paired(ip)) "Pareado" else "Ainda não pareado", 12f, if (st.paired(ip)) Ui.OK else Ui.MUTED))
             c.addView(Ui.button(this, if (st.paired(ip)) "Conectar e escolher app" else "Parear (PIN)", true) { if (st.paired(ip)) openApps(ip) else pair(ip) })
+            c.addView(Ui.button(this, "Refazer pareamento / PIN") { pair(ip) })
             c.addView(Ui.button(this, "Remover") { st.removeHost(ip); refreshList() })
             list.addView(c)
         }
@@ -209,7 +215,7 @@ class MoonlightActivity : Activity() {
     private fun connectionError(action: String, ip: String, error: Exception): String {
         val detail = error.message ?: error.javaClass.simpleName
         return if (detail.contains("403")) {
-            "$action: o host em $ip respondeu HTTP 403. Confirme que o IP é do PC com Apollo e que o painel abre em https://$ip:47990/. Para parear, entre no painel e use a aba PIN."
+            "$action: o host em $ip respondeu HTTP 403. No painel https://$ip:47990/, abra Clientes e habilite Listar aplicativos, Ver transmissão e Iniciar aplicativos para este celular. Depois tente novamente. Se o cadastro foi removido, use Refazer pareamento / PIN."
         } else {
             "$action em $ip: $detail"
         }

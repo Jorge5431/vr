@@ -44,6 +44,9 @@ import android.view.Choreographer;
 import android.view.Surface;
 
 public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements Choreographer.FrameCallback {
+    private final java.util.concurrent.atomic.AtomicLong stormRenderedFrames = new java.util.concurrent.atomic.AtomicLong();
+    public long getStormRenderedFrames() { return stormRenderedFrames.get(); }
+
     // Latency profile: favor minimal end-to-end delay over absolute smoothness.
     // Set true to enable a 'latest-only' fast path in the render loop.
     private boolean preferLowerDelays = false;
@@ -1111,6 +1114,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
 
                     lastRenderedFrameTimeNanos = frameTimeNanos;
                     activeWindowVideoStats.totalFramesRendered++;
+                    stormRenderedFrames.incrementAndGet();
                 } catch (IllegalStateException ignored) {
                     try {
                         // Try to avoid leaking the output buffer by releasing it without rendering
@@ -1426,6 +1430,7 @@ public class MediaCodecDecoderRenderer extends VideoDecoderRenderer implements C
                                 }
 
                                 activeWindowVideoStats.totalFramesRendered++;
+                    stormRenderedFrames.incrementAndGet();
                             }
                             else {
                                 // For balanced frame pacing case, the Choreographer callback will handle rendering.

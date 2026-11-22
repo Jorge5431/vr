@@ -58,6 +58,9 @@ public final class MoonlightStore {
     }
     public boolean paired(String ip) { return cert(ip) != null; }
 
+    public boolean compatibility() { return p.getBoolean("compatibility", true); }
+    public void setCompatibility(boolean value) { p.edit().putBoolean("compatibility", value).apply(); }
+
     // qualidade do vídeo
     public int width() { return p.getInt("w", 1920); }
     public int height() { return p.getInt("h", 1080); }
